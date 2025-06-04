@@ -9,10 +9,11 @@ const { initWebSocket } = require('./utils/websocket');
 
 const app = express();
 const port = process.env.BACKEND_PORT || 3200;
-const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+const frontendUrl = process.env.FRONTEND_URL || 'https://uiux.repsdeltsgear.store';
 
+// Настройка CORS
 app.use(cors({
-  origin: [frontendUrl, 'https://uiux.repsdeltsgear.store'], // Разрешаем оба варианта
+  origin: [frontendUrl, 'https://uiux.repsdeltsgear.store'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -21,7 +22,9 @@ app.use(cors({
 // Обработка предварительных запросов OPTIONS
 app.options('*', cors());
 
-app.use(express.json());
+// Увеличение лимита тела запроса
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 mongoose.connect(process.env.MONGO_URI);
 
@@ -31,5 +34,11 @@ initWebSocket(wss);
 
 app.use('/api/projects', projectRoutes);
 app.use('/api/auth', authRoutes);
+
+// Обработка ошибок
+app.use((err, req, res, next) => {
+  console.error('Server error:', err.message);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 module.exports = app;

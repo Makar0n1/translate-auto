@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3200';
 
 function ProjectModal({ onClose, onAdd }) {
   const [name, setName] = useState('');
@@ -21,12 +21,17 @@ function ProjectModal({ onClose, onAdd }) {
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    if (selectedFile && !selectedFile.name.endsWith('.xlsx')) {
-      setError('Please upload an XLSX file');
-      setFile(null);
-    } else {
-      setError('');
-      setFile(selectedFile);
+    if (selectedFile) {
+      if (!selectedFile.name.endsWith('.xlsx')) {
+        setError('Please upload an XLSX file');
+        setFile(null);
+      } else if (selectedFile.size > 50 * 1024 * 1024) { // 50MB limit
+        setError('File size exceeds 50MB limit');
+        setFile(null);
+      } else {
+        setError('');
+        setFile(selectedFile);
+      }
     }
   };
 
@@ -75,8 +80,12 @@ function ProjectModal({ onClose, onAdd }) {
       onClose();
     } catch (err) {
       const errorMessage = err.response?.data?.error || err.message || 'Failed to create project';
+      if (err.response?.status === 413) {
+        setError('File too large. Please upload a file smaller than 50MB.');
+      } else {
+        setError(errorMessage);
+      }
       console.error('Project creation error:', errorMessage, err);
-      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
