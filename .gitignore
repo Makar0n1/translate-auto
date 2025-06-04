@@ -1,6 +1,6 @@
 .env
 backend/.env
-backend/uploads/*
+backend/uploads
 backend/node_modules
 backend/package-lock.json
 frontend/node_modules
