@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+
 function ProjectModal({ onClose, onAdd }) {
   const [name, setName] = useState('');
   const [file, setFile] = useState(null);
@@ -61,12 +63,13 @@ function ProjectModal({ onClose, onAdd }) {
     formData.append('languages', JSON.stringify(languages));
 
     try {
-      const response = await axios.post('http://localhost:3000/api/projects', formData, {
+      const response = await axios.post(`${BACKEND_URL}/api/projects`, formData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'multipart/form-data'
         }
       });
+      console.log('Project created:', response.data);
       resetForm();
       onAdd();
       onClose();
@@ -93,7 +96,7 @@ function ProjectModal({ onClose, onAdd }) {
             placeholder="Project Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             disabled={isLoading}
           />
           <input
@@ -108,7 +111,7 @@ function ProjectModal({ onClose, onAdd }) {
             placeholder="IMDb ID Column"
             value={columns.imdbid}
             onChange={(e) => setColumns({ ...columns, imdbid: e.target.value })}
-            className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             disabled={isLoading}
           />
           <input
@@ -116,7 +119,7 @@ function ProjectModal({ onClose, onAdd }) {
             placeholder="Title Column"
             value={columns.title}
             onChange={(e) => setColumns({ ...columns, title: e.target.value })}
-            className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             disabled={isLoading}
           />
           <input
@@ -124,7 +127,7 @@ function ProjectModal({ onClose, onAdd }) {
             placeholder="Description Column"
             value={columns.description}
             onChange={(e) => setColumns({ ...columns, description: e.target.value })}
-            className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
             disabled={isLoading}
           />
           <div className="mb-4">
@@ -134,13 +137,13 @@ function ProjectModal({ onClose, onAdd }) {
                 placeholder="Enter language codes (e.g., es, pt, fr)"
                 value={newLanguage}
                 onChange={(e) => setNewLanguage(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 disabled={isLoading}
               />
               <button
                 type="button"
                 onClick={handleAddLanguage}
-                className="bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600 transition-colors duration-200"
+                className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors duration-200"
                 disabled={isLoading}
               >
                 +
@@ -148,7 +151,7 @@ function ProjectModal({ onClose, onAdd }) {
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
               {languages.map(lang => (
-                <span key={lang} className="inline-block bg-indigo-100 text-indigo-800 rounded px-2 py-1">
+                <span key={lang} className="inline-block bg-green-100 text-green-800 rounded px-2 py-1">
                   {lang}
                 </span>
               ))}
@@ -156,7 +159,7 @@ function ProjectModal({ onClose, onAdd }) {
           </div>
           <button
             type="submit"
-            className="w-full bg-indigo-500 text-white p-3 rounded-md hover:bg-indigo-600 transition-colors duration-200 disabled:bg-indigo-300 disabled:cursor-not-allowed"
+            className="w-full bg-green-500 text-white p-3 rounded-md hover:bg-green-600 transition-colors duration-200 disabled:bg-green-300 disabled:cursor-not-allowed"
             disabled={isLoading}
           >
             {isLoading ? 'Creating...' : 'Add Project'}

@@ -1,17 +1,19 @@
 import axios from 'axios';
 
-function ProjectCard({ project }) {
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+
+function ProjectCard({ project, index }) {
   const statusColors = {
     idle: 'bg-gray-400',
-    running: 'bg-indigo-500',
-    completed: 'bg-green-500',
+    running: 'bg-green-500',
+    completed: 'bg-blue-500',
     error: 'bg-red-500',
     canceled: 'bg-gray-400'
   };
 
   const handleAction = async (action) => {
     try {
-      await axios.post(`http://localhost:3000/api/projects/${project._id}/${action}`, {}, {
+      await axios.post(`${BACKEND_URL}/api/projects/${project._id}/${action}`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
     } catch (error) {
@@ -21,7 +23,7 @@ function ProjectCard({ project }) {
 
   const handleDelete = async () => {
     try {
-      await axios.delete(`http://localhost:3000/api/projects/${project._id}`, {
+      await axios.delete(`${BACKEND_URL}/api/projects/${project._id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
     } catch (error) {
@@ -30,11 +32,11 @@ function ProjectCard({ project }) {
   };
 
   const handleDownload = () => {
-    window.location.href = `http://localhost:3000/api/projects/${project._id}/download`;
+    window.location.href = `${BACKEND_URL}/api/projects/${project._id}/download`;
   };
 
   return (
-    <div className="card bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
+    <div className={`card bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 animate__animated animate__fadeIn animate__delay-${index % 3}s`}>
       <h3 className="text-xl font-semibold text-gray-800 mb-2">{project.name}</h3>
       <div className="flex items-center mb-3">
         <div className={`w-4 h-4 rounded-full ${statusColors[project.status]} mr-2`}></div>
@@ -47,7 +49,7 @@ function ProjectCard({ project }) {
         {project.status === 'idle' && (
           <button
             onClick={() => handleAction('start')}
-            className="bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600 transition-colors duration-200"
+            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors duration-200"
           >
             Start
           </button>
@@ -63,7 +65,7 @@ function ProjectCard({ project }) {
         {project.status === 'canceled' && (
           <button
             onClick={() => handleAction('resume')}
-            className="bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600 transition-colors duration-200"
+            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors duration-200"
           >
             Resume
           </button>
@@ -71,7 +73,7 @@ function ProjectCard({ project }) {
         {project.status === 'error' && (
           <button
             onClick={() => handleAction('resume')}
-            className="bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600 transition-colors duration-200"
+            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors duration-200"
           >
             Resume
           </button>
@@ -79,7 +81,7 @@ function ProjectCard({ project }) {
         {project.status === 'completed' && (
           <button
             onClick={handleDownload}
-            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors duration-200"
+            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors duration-200"
           >
             Download XLSX
           </button>
@@ -95,7 +97,7 @@ function ProjectCard({ project }) {
       <div className="mt-4">
         <div className="bg-gray-200 rounded-full h-2.5 overflow-hidden">
           <div
-            className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300"
+            className="bg-green-500 h-2.5 rounded-full transition-all duration-300"
             style={{ width: `${project.progress}%` }}
           ></div>
         </div>

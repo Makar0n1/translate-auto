@@ -4,9 +4,12 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: process.env.FRONTEND_PORT || 3001
+    port: process.env.VITE_FRONTEND_PORT || 3001
   },
   build: {
-    outDir: 'dist'
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: false, // Отключаем sourcemaps для продакшена
+    minify: 'esbuild' // Минификация для оптимизации
   }
 });
