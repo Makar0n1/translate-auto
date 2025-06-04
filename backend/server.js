@@ -8,15 +8,19 @@ const authRoutes = require('./routes/authRoutes');
 const { initWebSocket } = require('./utils/websocket');
 
 const app = express();
-const port = process.env.BACKEND_PORT || 3000;
+const port = process.env.BACKEND_PORT || 3200;
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
 
 app.use(cors({
-  origin: frontendUrl,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: [frontendUrl, 'https://uiux.repsdeltsgear.store'], // Разрешаем оба варианта
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
+
+// Обработка предварительных запросов OPTIONS
+app.options('*', cors());
+
 app.use(express.json());
 
 mongoose.connect(process.env.MONGO_URI);
