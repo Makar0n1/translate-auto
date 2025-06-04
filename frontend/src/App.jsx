@@ -89,8 +89,8 @@ function App() {
                   <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-md transition-colors duration-200">Logout</button>
                 </div>
               </header>
-              <main className="container mx-auto p-6 flex-grow">
-                <div className="flex justify-end mb-6">
+              <main className="container mx-auto px-6 py-4 flex-grow flex flex-col">
+                <div className="flex justify-end mb-4">
                   <button
                     onClick={() => setIsModalOpen(true)}
                     className="bg-indigo-500 text-white px-6 py-2 rounded-md hover:bg-indigo-600 transition-colors duration-200"
@@ -99,7 +99,7 @@ function App() {
                   </button>
                 </div>
                 {projects.length === 0 ? (
-                  <div className="flex items-center justify-center min-h-[calc(100vh-136px)] text-center text-gray-600 text-lg">
+                  <div className="flex items-center justify-center h-[30vw] text-center text-gray-600 text-lg">
                     Your translation projects will appear here
                   </div>
                 ) : (
@@ -110,7 +110,7 @@ function App() {
                   </div>
                 )}
               </main>
-              <footer className="bg-indigo-800 text-white p-4 mt-auto">
+              <footer className="bg-indigo-800 text-white p-4">
                 <div className="container mx-auto text-center">
                   <p>Translation Dashboard © 2025</p>
                 </div>
