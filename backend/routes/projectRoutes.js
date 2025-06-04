@@ -4,6 +4,7 @@ const projectController = require('../controllers/projectController');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 
+router.get('/', projectController.getProjects);
 router.post('/', upload.single('file'), projectController.createProject);
 router.post('/:id/start', projectController.startTranslation);
 router.post('/:id/cancel', projectController.cancelTranslation);

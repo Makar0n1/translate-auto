@@ -10,6 +10,7 @@ const ProjectSchema = new mongoose.Schema({
   },
   languages: [{ type: String, required: true }],
   status: { type: String, enum: ['idle', 'running', 'completed', 'error', 'canceled'], default: 'idle' },
+  errorMessage: { type: String, default: '' },
   progress: { type: Number, default: 0 },
   totalRows: { type: Number, default: 0 },
   translatedRows: { type: Number, default: 0 },

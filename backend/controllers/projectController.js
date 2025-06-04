@@ -7,10 +7,34 @@ const { broadcast } = require('../utils/websocket');
 
 const upload = multer({ dest: 'uploads/' });
 
-exports.createProject = async (req, res) => {
-  const { name, columns, languages } = req.body;
-  const file = req.file;
+exports.getProjects = async (req, res) => {
   try {
+    const projects = await Project.find();
+    res.json(projects);
+  } catch (error) {
+    console.error('Error fetching projects:', error.message);
+    res.status(500).json({ error: 'Failed to fetch projects' });
+  }
+};
+
+exports.createProject = async (req, res) => {
+  const { name } = req.body;
+  let { columns, languages } = req.body;
+  const file = req.file;
+
+  try {
+    if (typeof columns === 'string') {
+      columns = JSON.parse(columns);
+    }
+    if (typeof languages === 'string') {
+      languages = JSON.parse(languages);
+    }
+
+    if (!name || !file || !columns || !languages || !columns.imdbid || !columns.title || !columns.description || !languages.length) {
+      console.error('Invalid input:', { name, file, columns, languages });
+      return res.status(400).json({ error: 'All fields are required, including at least one language' });
+    }
+
     const workbook = XLSX.readFile(file.path);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
@@ -24,9 +48,11 @@ exports.createProject = async (req, res) => {
     });
     
     await project.save();
+    console.log('Project created:', project._id);
     broadcast({ type: 'PROJECT_CREATED', project });
     res.status(201).json(project);
   } catch (error) {
+    console.error('Error creating project:', error.message);
     res.status(500).json({ error: 'Failed to create project' });
   }
 };
@@ -52,9 +78,20 @@ exports.startTranslation = async (req, res) => {
       const translations = [];
       
       for (const lang of project.languages) {
-        const title = await translateText(row[project.columns.title], lang, 'title');
-        const description = await translateText(row[project.columns.description], lang, 'description');
-        translations.push({ language: lang, title, description });
+        try {
+          const title = await translateText(row[project.columns.title], lang, 'title');
+          const description = await translateText(row[project.columns.description], lang, 'description');
+          translations.push({ language: lang, title, description });
+        } catch (error) {
+          if (error.message === 'OpenAI quota exceeded') {
+            project.status = 'error';
+            project.errorMessage = 'OpenAI quota exceeded. Please top up your account and resume.';
+            await project.save();
+            broadcast({ type: 'PROJECT_UPDATED', project });
+            return res.status(429).json({ error: project.errorMessage });
+          }
+          throw error; // Другие ошибки обрабатываются в translateText
+        }
       }
       
       project.translations.push({
@@ -80,7 +117,9 @@ exports.startTranslation = async (req, res) => {
     
     res.json(project);
   } catch (error) {
+    console.error('Error in translation:', error.message);
     project.status = 'error';
+    project.errorMessage = error.message;
     await project.save();
     broadcast({ type: 'PROJECT_UPDATED', project });
     res.status(500).json({ error: 'Translation failed' });
@@ -98,6 +137,7 @@ exports.cancelTranslation = async (req, res) => {
     broadcast({ type: 'PROJECT_UPDATED', project });
     res.json(project);
   } catch (error) {
+    console.error('Error canceling translation:', error.message);
     res.status(500).json({ error: 'Failed to cancel' });
   }
 };
@@ -109,12 +149,13 @@ exports.resumeTranslation = async (req, res) => {
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
     project.status = 'running';
+    project.errorMessage = '';
     await project.save();
     broadcast({ type: 'PROJECT_UPDATED', project });
     
-    // Resume from last translated row
     exports.startTranslation(req, res);
   } catch (error) {
+    console.error('Error resuming translation:', error.message);
     res.status(500).json({ error: 'Failed to resume' });
   }
 };
@@ -126,6 +167,7 @@ exports.deleteProject = async (req, res) => {
     broadcast({ type: 'PROJECT_DELETED', id });
     res.json({ message: 'Project deleted' });
   } catch (error) {
+    console.error('Error deleting project:', error.message);
     res.status(500).json({ error: 'Failed to delete' });
   }
 };
@@ -160,6 +202,7 @@ exports.downloadXLSX = async (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.send(buffer);
   } catch (error) {
+    console.error('Error generating XLSX:', error.message);
     res.status(500).json({ error: 'Failed to generate XLSX' });
   }
 };
