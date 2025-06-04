@@ -6,7 +6,7 @@ import ProjectModal from './components/ProjectModal';
 import axios from 'axios';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
-const WS_URL = import.meta.env.VITE_NODE_ENV === 'production' ? 'ws://api.repsdeltsgear.store' : 'ws://localhost:3000';
+const WS_URL = import.meta.env.VITE_NODE_ENV === 'production' ? 'wss://api.repsdeltsgear.store' : 'ws://localhost:3200';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
