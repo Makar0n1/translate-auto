@@ -15,7 +15,7 @@ exports.translateText = async (text, language, type, retries = 3) => {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [{
           role: 'user',
           content: promptTemplates[type](text, language)
