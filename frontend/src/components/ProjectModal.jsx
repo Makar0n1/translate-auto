@@ -67,7 +67,6 @@ function ProjectModal({ onClose, onAdd }) {
           'Content-Type': 'multipart/form-data'
         }
       });
-      console.log('Project created:', response.data);
       resetForm();
       onAdd();
       onClose();
