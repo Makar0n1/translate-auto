@@ -101,7 +101,6 @@ function App() {
               </header>
               <main className="container mx-auto px-4 py-4 flex-grow flex flex-col">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-gray-800">Projects</h2>
                   <button
                     onClick={() => setIsModalOpen(true)}
                     className="bg-green-500 text-white px-6 py-2 rounded-full hover:bg-green-600 transition-colors duration-200"
@@ -124,7 +123,6 @@ function App() {
               <footer className="bg-green-800 text-white py-6">
                 <div className="container mx-auto text-center">
                   <p className="text-sm">RepsDeltsGear Dashboard © 2025</p>
-                  <p className="text-xs mt-2">Powered by xAI Technology</p>
                 </div>
               </footer>
               {isModalOpen && (
