@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3200';
 
 function ProjectCard({ project, index }) {
   const statusColors = {
@@ -62,7 +62,7 @@ function ProjectCard({ project, index }) {
             Cancel
           </button>
         )}
-        {project.status === 'canceled' && (
+        {(project.status === 'canceled' || project.status === 'error') && (
           <button
             onClick={() => handleAction('resume')}
             className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors duration-200"
@@ -70,15 +70,7 @@ function ProjectCard({ project, index }) {
             Resume
           </button>
         )}
-        {project.status === 'error' && (
-          <button
-            onClick={() => handleAction('resume')}
-            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors duration-200"
-          >
-            Resume
-          </button>
-        )}
-        {project.status === 'completed' && (
+        {(project.status === 'completed' || (project.translatedRows > 0 && (project.status === 'canceled' || project.status === 'error'))) && (
           <button
             onClick={handleDownload}
             className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors duration-200"
