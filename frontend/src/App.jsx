@@ -118,7 +118,7 @@ function App() {
             <div className="flex flex-col min-h-screen bg-gray-50">
               <header className="bg-green-600 text-white p-4 shadow-md">
                 <div className="container mx-auto flex justify-between items-center">
-                  <h1 className="text-2xl font-semibold">RepsDeltsGear Dashboard</h1>
+                  <h1 className="text-2xl font-semibold">Dashboard</h1>
                   <button onClick={handleLogout} className="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-md transition-colors duration-200">Logout</button>
                 </div>
               </header>
@@ -146,8 +146,7 @@ function App() {
               </main>
               <footer className="bg-green-800 text-white py-6">
                 <div className="container mx-auto text-center">
-                  <p className="text-sm">RepsDeltsGear Dashboard © 2025</p>
-                  <p className="text-xs mt-2">Powered by xAI Technology</p>
+                  <p className="text-sm">AI-TranslationAuto © 2025</p>
                 </div>
               </footer>
               {isModalOpen && (
