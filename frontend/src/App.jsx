@@ -1,17 +1,52 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginForm from './components/LoginForm';
 import ProjectCard from './components/ProjectCard';
 import ProjectModal from './components/ProjectModal';
 import axios from 'axios';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
-const WS_URL = import.meta.env.VITE_NODE_ENV === 'production' ? 'wss://api.repsdeltsgear.store' : 'ws://localhost:3000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3200';
+const WS_URL = import.meta.env.VITE_NODE_ENV === 'production' ? 'wss://api.repsdeltsgear.store' : 'ws://localhost:3200';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [projects, setProjects] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const wsRef = useRef(null);
+
+  const connectWebSocket = () => {
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('WebSocket connected');
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const { type, project, id } = JSON.parse(event.data);
+        console.log('WebSocket message received:', { type, project, id });
+        if (type === 'PROJECT_CREATED') {
+          setProjects((prev) => [...prev, project]);
+        } else if (type === 'PROJECT_UPDATED') {
+          setProjects((prev) => prev.map(p => p._id === project._id ? project : p));
+        } else if (type === 'PROJECT_DELETED') {
+          setProjects((prev) => prev.filter(p => p._id !== id));
+        }
+      } catch (error) {
+        console.error('WebSocket message parsing error:', error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket disconnected, reconnecting in 5s...');
+      setTimeout(connectWebSocket, 5000);
+    };
+  };
 
   useEffect(() => {
     const checkToken = async () => {
@@ -37,24 +72,12 @@ function App() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchProjects();
-      const ws = new WebSocket(WS_URL);
-      ws.onmessage = (event) => {
-        const { data } = event;
-        try {
-          const { type, project, id } = JSON.parse(data);
-          if (type === 'PROJECT_CREATED') {
-            setProjects((prev) => [...prev, project]);
-          } else if (type === 'PROJECT_UPDATED') {
-            setProjects((prev) => prev.map(p => p._id === project._id ? project : p));
-          } else if (type === 'PROJECT_DELETED') {
-            setProjects((prev) => prev.filter(p => p._id !== id));
-          }
-        } catch (error) {
-          console.error('WebSocket message parsing error:', error);
+      connectWebSocket();
+      return () => {
+        if (wsRef.current) {
+          wsRef.current.close();
         }
       };
-      ws.onerror = (error) => console.error('WebSocket error:', error);
-      return () => ws.close();
     }
   }, [isAuthenticated]);
 
@@ -101,6 +124,7 @@ function App() {
               </header>
               <main className="container mx-auto px-4 py-4 flex-grow flex flex-col">
                 <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-gray-800">Projects</h2>
                   <button
                     onClick={() => setIsModalOpen(true)}
                     className="bg-green-500 text-white px-6 py-2 rounded-full hover:bg-green-600 transition-colors duration-200"
@@ -123,6 +147,7 @@ function App() {
               <footer className="bg-green-800 text-white py-6">
                 <div className="container mx-auto text-center">
                   <p className="text-sm">RepsDeltsGear Dashboard © 2025</p>
+                  <p className="text-xs mt-2">Powered by xAI Technology</p>
                 </div>
               </footer>
               {isModalOpen && (
