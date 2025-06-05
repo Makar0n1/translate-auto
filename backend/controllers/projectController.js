@@ -3,7 +3,9 @@ const XLSX = require('xlsx');
 const multer = require('multer');
 const { translateText } = require('../utils/openai');
 const Project = require('../models/Project');
+const TranslationsCache = require('../models/TranslationsCache');
 const { broadcast } = require('../utils/websocket');
+const { setTranslationState, getTranslationState } = require('../utils/translationState');
 
 const upload = multer({ dest: 'uploads/' });
 
@@ -65,6 +67,7 @@ exports.startTranslation = async (req, res) => {
     
     project.status = 'running';
     await project.save();
+    setTranslationState(id, true);
     broadcast({ type: 'PROJECT_UPDATED', project });
     
     const workbook = XLSX.readFile(project.filePath);
@@ -72,26 +75,58 @@ exports.startTranslation = async (req, res) => {
     const data = XLSX.utils.sheet_to_json(sheet);
     
     for (let i = project.translatedRows; i < data.length; i++) {
-      if (project.status !== 'running') break;
+      if (!getTranslationState(id)) {
+        console.log(`Translation stopped for project ${id} at row ${i}`);
+        break;
+      }
       
       const row = data[i];
       const translations = [];
       
       for (const lang of project.languages) {
-        try {
-          const title = await translateText(row[project.columns.title], lang, 'title');
-          const description = await translateText(row[project.columns.description], lang, 'description');
-          translations.push({ language: lang, title, description });
-        } catch (error) {
-          if (error.message === 'OpenAI quota exceeded') {
-            project.status = 'error';
-            project.errorMessage = 'OpenAI quota exceeded. Please top up your account and resume.';
-            await project.save();
-            broadcast({ type: 'PROJECT_UPDATED', project });
-            return res.status(429).json({ error: project.errorMessage });
+        let title, description;
+        
+        let cache = await TranslationsCache.findOne({ text: row[project.columns.title], language: lang, type: 'title' });
+        if (cache) {
+          title = cache.translation;
+        } else {
+          try {
+            title = await translateText(row[project.columns.title], lang, 'title');
+            await TranslationsCache.create({ text: row[project.columns.title], language: lang, type: 'title', translation: title });
+          } catch (error) {
+            if (error.message === 'OpenAI quota exceeded') {
+              project.status = 'error';
+              project.errorMessage = 'OpenAI quota exceeded. Please top up your account and resume.';
+              await project.save();
+              setTranslationState(id, false);
+              broadcast({ type: 'PROJECT_UPDATED', project });
+              return res.status(429).json({ error: project.errorMessage });
+            }
+            throw error;
           }
-          throw error; // Другие ошибки обрабатываются в translateText
         }
+        
+        cache = await TranslationsCache.findOne({ text: row[project.columns.description], language: lang, type: 'description' });
+        if (cache) {
+          description = cache.translation;
+        } else {
+          try {
+            description = await translateText(row[project.columns.description], lang, 'description');
+            await TranslationsCache.create({ text: row[project.columns.description], language: lang, type: 'description', translation: description });
+          } catch (error) {
+            if (error.message === 'OpenAI quota exceeded') {
+              project.status = 'error';
+              project.errorMessage = 'OpenAI quota exceeded. Please top up your account and resume.';
+              await project.save();
+              setTranslationState(id, false);
+              broadcast({ type: 'PROJECT_UPDATED', project });
+              return res.status(429).json({ error: project.errorMessage });
+            }
+            throw error;
+          }
+        }
+        
+        translations.push({ language: lang, title, description });
       }
       
       project.translations.push({
@@ -104,14 +139,15 @@ exports.startTranslation = async (req, res) => {
       });
       
       project.translatedRows = i + 1;
-      project.progress = (i + 1) / data.length * 100;
+      project.progress = project.translatedRows / data.length * 100;
       await project.save();
       broadcast({ type: 'PROJECT_UPDATED', project });
     }
     
-    if (project.status === 'running') {
+    if (getTranslationState(id)) {
       project.status = 'completed';
       await project.save();
+      setTranslationState(id, false);
       broadcast({ type: 'PROJECT_UPDATED', project });
     }
     
@@ -121,6 +157,7 @@ exports.startTranslation = async (req, res) => {
     project.status = 'error';
     project.errorMessage = error.message;
     await project.save();
+    setTranslationState(id, false);
     broadcast({ type: 'PROJECT_UPDATED', project });
     res.status(500).json({ error: 'Translation failed' });
   }
@@ -132,8 +169,10 @@ exports.cancelTranslation = async (req, res) => {
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
+    console.log(`Canceling translation for project ${id}`);
     project.status = 'canceled';
     await project.save();
+    setTranslationState(id, false);
     broadcast({ type: 'PROJECT_UPDATED', project });
     res.json(project);
   } catch (error) {
@@ -151,6 +190,7 @@ exports.resumeTranslation = async (req, res) => {
     project.status = 'running';
     project.errorMessage = '';
     await project.save();
+    setTranslationState(id, true);
     broadcast({ type: 'PROJECT_UPDATED', project });
     
     exports.startTranslation(req, res);
@@ -164,6 +204,7 @@ exports.deleteProject = async (req, res) => {
   const { id } = req.params;
   try {
     await Project.findByIdAndDelete(id);
+    setTranslationState(id, false);
     broadcast({ type: 'PROJECT_DELETED', id });
     res.json({ message: 'Project deleted' });
   } catch (error) {
