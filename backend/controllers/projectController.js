@@ -3,7 +3,6 @@ const XLSX = require('xlsx');
 const multer = require('multer');
 const { translateText } = require('../utils/openai');
 const Project = require('../models/Project');
-const TranslationsCache = require('../models/TranslationsCache');
 const { broadcast } = require('../utils/websocket');
 const { setTranslationState, getTranslationState } = require('../utils/translationState');
 
@@ -84,49 +83,21 @@ exports.startTranslation = async (req, res) => {
       const translations = [];
       
       for (const lang of project.languages) {
-        let title, description;
-        
-        let cache = await TranslationsCache.findOne({ text: row[project.columns.title], language: lang, type: 'title' });
-        if (cache) {
-          title = cache.translation;
-        } else {
-          try {
-            title = await translateText(row[project.columns.title], lang, 'title');
-            await TranslationsCache.create({ text: row[project.columns.title], language: lang, type: 'title', translation: title });
-          } catch (error) {
-            if (error.message === 'OpenAI quota exceeded') {
-              project.status = 'error';
-              project.errorMessage = 'OpenAI quota exceeded. Please top up your account and resume.';
-              await project.save();
-              setTranslationState(id, false);
-              broadcast({ type: 'PROJECT_UPDATED', project });
-              return res.status(429).json({ error: project.errorMessage });
-            }
-            throw error;
+        try {
+          const title = await translateText(row[project.columns.title], lang, 'title');
+          const description = await translateText(row[project.columns.description], lang, 'description');
+          translations.push({ language: lang, title, description });
+        } catch (error) {
+          if (error.message === 'OpenAI quota exceeded') {
+            project.status = 'error';
+            project.errorMessage = 'OpenAI quota exceeded. Please top up your account and resume.';
+            await project.save();
+            setTranslationState(id, false);
+            broadcast({ type: 'PROJECT_UPDATED', project });
+            return res.status(429).json({ error: project.errorMessage });
           }
+          throw error;
         }
-        
-        cache = await TranslationsCache.findOne({ text: row[project.columns.description], language: lang, type: 'description' });
-        if (cache) {
-          description = cache.translation;
-        } else {
-          try {
-            description = await translateText(row[project.columns.description], lang, 'description');
-            await TranslationsCache.create({ text: row[project.columns.description], language: lang, type: 'description', translation: description });
-          } catch (error) {
-            if (error.message === 'OpenAI quota exceeded') {
-              project.status = 'error';
-              project.errorMessage = 'OpenAI quota exceeded. Please top up your account and resume.';
-              await project.save();
-              setTranslationState(id, false);
-              broadcast({ type: 'PROJECT_UPDATED', project });
-              return res.status(429).json({ error: project.errorMessage });
-            }
-            throw error;
-          }
-        }
-        
-        translations.push({ language: lang, title, description });
       }
       
       project.translations.push({
