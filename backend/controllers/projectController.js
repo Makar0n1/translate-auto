@@ -71,12 +71,13 @@ exports.startTranslation = async (req, res) => {
     broadcast({ type: 'PROJECT_UPDATED', project });
     
     const workbook = XLSX.readFile(project.filePath);
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const sheet = workbook.Sheets[workbobk.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
     
     let currentCollection = project;
     let collectionIndex = project.translationCollections.length + 1;
     let maxRowsPerCollection = 10000;
+    let rowCountInCurrentCollection = project.translations ? project.translations.length : 0;
 
     for (let i = project.translatedRows; i < data.length; i++) {
       if (!getTranslationState(id)) {
@@ -84,11 +85,8 @@ exports.startTranslation = async (req, res) => {
         break;
       }
       
-      if (!currentCollection.translations) {
-        currentCollection.translations = [];
-      }
-      
-      if (currentCollection.translations.length >= maxRowsPerCollection) {
+      // Проверяем, нужно ли создать новую коллекцию
+      if (rowCountInCurrentCollection >= maxRowsPerCollection) {
         const newCollectionName = `project_${id}_${collectionIndex}`;
         console.log(`Creating new collection: ${newCollectionName}`);
         const TranslationSchema = new mongoose.Schema({
@@ -101,13 +99,13 @@ exports.startTranslation = async (req, res) => {
           }]
         });
         const NewCollection = mongoose.model(newCollectionName, TranslationSchema, newCollectionName);
-        const newDoc = new NewCollection({});
-        newDoc.translations = [];
+        const newDoc = new NewCollection({ translations: [] }); // Явная инициализация
         await newDoc.save();
         currentCollection = await NewCollection.findOne({ _id: newDoc._id });
         project.translationCollections.push(newCollectionName);
         await project.save();
-        console.log(`New collection ${newCollectionName} initialized`);
+        console.log(`New collection ${newCollectionName} initialized with ID ${currentCollection._id}`);
+        rowCountInCurrentCollection = 0;
         collectionIndex++;
       }
       
@@ -132,6 +130,11 @@ exports.startTranslation = async (req, res) => {
         }
       }
       
+      if (!currentCollection.translations) {
+        console.error('currentCollection.translations is undefined, initializing...');
+        currentCollection.translations = [];
+      }
+      
       currentCollection.translations.push({
         imdbid: row[project.columns.imdbid],
         original: {
@@ -149,6 +152,7 @@ exports.startTranslation = async (req, res) => {
       project.progress = project.translatedRows / data.length * 100;
       await project.save();
       broadcast({ type: 'PROJECT_UPDATED', project });
+      rowCountInCurrentCollection++;
     }
     
     if (getTranslationState(id)) {
@@ -238,18 +242,20 @@ exports.downloadXLSX = async (req, res) => {
     const data = [];
     
     // Данные из project.translations
-    project.translations.forEach(t => {
-      const row = {
-        imdbid: t.imdbid,
-        title: t.original.title,
-        description: t.original.description
-      };
-      t.translated.forEach(tr => {
-        row[`${tr.language} title`] = tr.title;
-        row[`${tr.language} description`] = tr.description;
+    if (project.translations) {
+      project.translations.forEach(t => {
+        const row = {
+          imdbid: t.imdbid,
+          title: t.original.title,
+          description: t.original.description
+        };
+        t.translated.forEach(tr => {
+          row[`${tr.language} title`] = tr.title;
+          row[`${tr.language} description`] = tr.description;
+        });
+        data.push(row);
       });
-      data.push(row);
-    });
+    }
     
     // Данные из дополнительных коллекций
     for (const collectionName of project.translationCollections) {
