@@ -14,6 +14,15 @@ const ProjectSchema = new mongoose.Schema({
   progress: { type: Number, default: 0 },
   totalRows: { type: Number, default: 0 },
   translatedRows: { type: Number, default: 0 },
+  translations: [{
+    imdbid: String,
+    original: { title: String, description: String },
+    translated: [{
+      language: String,
+      title: String,
+      description: String
+    }]
+  }],
   createdAt: { type: Date, default: Date.now }
 });
 
