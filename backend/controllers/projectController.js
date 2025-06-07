@@ -3,7 +3,6 @@ const XLSX = require('xlsx');
 const multer = require('multer');
 const { translateText } = require('../utils/openai');
 const Project = require('../models/Project');
-const Translation = require('../models/Translation');
 const { broadcast } = require('../utils/websocket');
 const { setTranslationState, getTranslationState } = require('../utils/translationState');
 
@@ -75,10 +74,33 @@ exports.startTranslation = async (req, res) => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
     
+    let currentCollection = project; // Начинаем с project.translations
+    let collectionIndex = project.translationCollections.length + 1;
+    let maxRowsPerCollection = 10000; // Лимит строк на коллекцию (~15 МБ)
+
     for (let i = project.translatedRows; i < data.length; i++) {
       if (!getTranslationState(id)) {
         console.log(`Translation stopped for project ${id} at row ${i}`);
         break;
+      }
+      
+      // Проверяем, нужно ли создать новую коллекцию
+      if (currentCollection.translations.length >= maxRowsPerCollection) {
+        const newCollectionName = `project_${id}_${collectionIndex}`;
+        console.log(`Creating new collection: ${newCollectionName}`);
+        const NewCollection = mongoose.model(newCollectionName, mongoose.Schema({
+          imdbid: String,
+          original: { title: String, description: String },
+          translated: [{
+            language: String,
+            title: String,
+            description: String
+          }]
+        }));
+        project.translationCollections.push(newCollectionName);
+        await project.save();
+        currentCollection = new NewCollection({ translations: [] });
+        collectionIndex++;
       }
       
       const row = data[i];
@@ -102,8 +124,7 @@ exports.startTranslation = async (req, res) => {
         }
       }
       
-      await Translation.create({
-        projectId: id,
+      currentCollection.translations.push({
         imdbid: row[project.columns.imdbid],
         original: {
           title: row[project.columns.title],
@@ -111,6 +132,10 @@ exports.startTranslation = async (req, res) => {
         },
         translated: translations
       });
+      
+      if (currentCollection !== project) {
+        await currentCollection.save();
+      }
       
       project.translatedRows = i + 1;
       project.progress = project.translatedRows / data.length * 100;
@@ -179,8 +204,13 @@ exports.resumeTranslation = async (req, res) => {
 exports.deleteProject = async (req, res) => {
   const { id } = req.params;
   try {
+    const project = await Project.findById(id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    
+    for (const collectionName of project.translationCollections) {
+      await mongoose.connection.dropCollection(collectionName);
+    }
     await Project.findByIdAndDelete(id);
-    await Translation.deleteMany({ projectId: id });
     setTranslationState(id, false);
     broadcast({ type: 'PROJECT_DELETED', id });
     res.json({ message: 'Project deleted' });
@@ -196,12 +226,11 @@ exports.downloadXLSX = async (req, res) => {
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
-    const translations = await Translation.find({ projectId: id });
-    
     const workbook = XLSX.utils.book_new();
     const data = [];
     
-    translations.forEach(t => {
+    // Данные из project.translations
+    project.translations.forEach(t => {
       const row = {
         imdbid: t.imdbid,
         title: t.original.title,
@@ -213,6 +242,32 @@ exports.downloadXLSX = async (req, res) => {
       });
       data.push(row);
     });
+    
+    // Данные из дополнительных коллекций
+    for (const collectionName of project.translationCollections) {
+      const Collection = mongoose.model(collectionName, mongoose.Schema({
+        imdbid: String,
+        original: { title: String, description: String },
+        translated: [{
+          language: String,
+          title: String,
+          description: String
+        }]
+      }));
+      const translations = await Collection.find();
+      translations.forEach(t => {
+        const row = {
+          imdbid: t.imdbid,
+          title: t.original.title,
+          description: t.original.description
+        };
+        t.translated.forEach(tr => {
+          row[`${tr.language} title`] = tr.title;
+          row[`${tr.language} description`] = tr.description;
+        });
+        data.push(row);
+      });
+    }
     
     const worksheet = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Translations');
