@@ -88,14 +88,15 @@ exports.startTranslation = async (req, res) => {
       const lastCollectionName = project.translationCollections[project.translationCollections.length - 1];
       console.log(`Using existing collection: ${lastCollectionName}`);
       const TranslationSchema = new mongoose.Schema({
-        imdbid: String,
-        original: { title: String, description: String },
-        translated: [{
-          language: String,
-          title: String,
-          description: String
-        }],
-        translations: { type: Array, default: [] }
+        translations: [{
+          imdbid: String,
+          original: { title: String, description: String },
+          translated: [{
+            language: String,
+            title: String,
+            description: String
+          }]
+        }]
       });
       const LastCollection = mongoose.model(lastCollectionName, TranslationSchema, lastCollectionName);
       currentCollection = await LastCollection.findOne().sort({ _id: -1 });
@@ -121,14 +122,15 @@ exports.startTranslation = async (req, res) => {
         const newCollectionName = `project_${id}_${collectionIndex}`;
         console.log(`Creating new collection: ${newCollectionName}`);
         const TranslationSchema = new mongoose.Schema({
-          imdbid: String,
-          original: { title: String, description: String },
-          translated: [{
-            language: String,
-            title: String,
-            description: String
-          }],
-          translations: { type: Array, default: [] }
+          translations: [{
+            imdbid: String,
+            original: { title: String, description: String },
+            translated: [{
+              language: String,
+              title: String,
+              description: String
+            }]
+          }]
         });
         const NewCollection = mongoose.model(newCollectionName, TranslationSchema, newCollectionName);
         currentCollection = new NewCollection({ translations: [] });
