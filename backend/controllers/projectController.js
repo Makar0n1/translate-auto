@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const XLSX = require('xlsx');
 const multer = require('multer');
+const fs = require('fs').promises; // Для удаления файлов
+const path = require('path'); // Для работы с путями
 const { translateText } = require('../utils/openai');
 const Project = require('../models/Project');
 const { broadcast } = require('../utils/websocket');
@@ -8,9 +10,12 @@ const { setTranslationState, getTranslationState } = require('../utils/translati
 
 const upload = multer({ dest: 'uploads/' });
 
+// Кэш для моделей коллекций
+const collectionModels = new Map();
+
 exports.getProjects = async (req, res) => {
   try {
-    const projects = await Project.find();
+    const projects = await Project.find().lean();
     res.json(projects);
   } catch (error) {
     console.error('Error fetching projects:', error.message);
@@ -46,13 +51,14 @@ exports.createProject = async (req, res) => {
       columns,
       languages,
       totalRows: data.length,
+      translations: [],
       translationCollections: []
     });
     
     await project.save();
-    console.log('Project created:', project._id);
-    broadcast({ type: 'PROJECT_CREATED', project });
-    res.status(201).json(project);
+    console.log('Project created:', project._id, 'translations:', project.translations, 'translationCollections:', project.translationCollections);
+    broadcast({ type: 'PROJECT_CREATED', project: project.toObject() });
+    res.status(201).json(project.toObject());
   } catch (error) {
     console.error('Error creating project:', error.message);
     res.status(500).json({ error: 'Failed to create project' });
@@ -63,14 +69,19 @@ exports.startTranslation = async (req, res) => {
   const { id } = req.params;
   let project;
   try {
-    project = await Project.findById(id);
+    project = await Project.findById(id).lean();
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
-    project.status = 'running';
-    if (!project.translationCollections) {
-      project.translationCollections = [];
+    await Project.updateOne({ _id: id }, { status: 'running' });
+    if (!Array.isArray(project.translations)) {
+      await Project.updateOne({ _id: id }, { translations: [] });
+      console.log(`Initialized translations for project ${id}`);
     }
-    await project.save();
+    if (!Array.isArray(project.translationCollections)) {
+      await Project.updateOne({ _id: id }, { translationCollections: [] });
+      console.log(`Initialized translationCollections for project ${id}`);
+    }
+    project = await Project.findById(id).lean();
     setTranslationState(id, true);
     broadcast({ type: 'PROJECT_UPDATED', project });
     
@@ -80,25 +91,29 @@ exports.startTranslation = async (req, res) => {
     
     let currentCollection = null;
     let collectionIndex = project.translationCollections.length + 1;
-    let maxRowsPerCollection = 10000;
+    let maxRowsPerCollection = 5; // Для теста
     let rowCountInCurrentCollection = 0;
 
     // Определяем текущую коллекцию
     if (project.translationCollections.length > 0) {
       const lastCollectionName = project.translationCollections[project.translationCollections.length - 1];
       console.log(`Using existing collection: ${lastCollectionName}`);
-      const TranslationSchema = new mongoose.Schema({
-        translations: [{
-          imdbid: String,
-          original: { title: String, description: String },
-          translated: [{
-            language: String,
-            title: String,
-            description: String
+      let LastCollection = collectionModels.get(lastCollectionName);
+      if (!LastCollection) {
+        const TranslationSchema = new mongoose.Schema({
+          translations: [{
+            imdbid: String,
+            original: { title: String, description: String },
+            translated: [{
+              language: String,
+              title: String,
+              description: String
+            }]
           }]
-        }]
-      });
-      const LastCollection = mongoose.model(lastCollectionName, TranslationSchema, lastCollectionName);
+        });
+        LastCollection = mongoose.model(lastCollectionName, TranslationSchema, lastCollectionName);
+        collectionModels.set(lastCollectionName, LastCollection);
+      }
       currentCollection = await LastCollection.findOne().sort({ _id: -1 });
       if (!currentCollection) {
         currentCollection = new LastCollection({ translations: [] });
@@ -107,8 +122,8 @@ exports.startTranslation = async (req, res) => {
       rowCountInCurrentCollection = currentCollection.translations ? currentCollection.translations.length : 0;
     } else {
       console.log('Using project.translations as initial collection');
-      currentCollection = project;
-      rowCountInCurrentCollection = project.translations ? project.translations.length : 0;
+      currentCollection = await Project.findById(id);
+      rowCountInCurrentCollection = currentCollection.translations ? currentCollection.translations.length : 0;
     }
 
     for (let i = project.translatedRows; i < data.length; i++) {
@@ -121,23 +136,32 @@ exports.startTranslation = async (req, res) => {
       if (rowCountInCurrentCollection >= maxRowsPerCollection) {
         const newCollectionName = `project_${id}_${collectionIndex}`;
         console.log(`Creating new collection: ${newCollectionName}`);
-        const TranslationSchema = new mongoose.Schema({
-          translations: [{
-            imdbid: String,
-            original: { title: String, description: String },
-            translated: [{
-              language: String,
-              title: String,
-              description: String
+        let NewCollection = collectionModels.get(newCollectionName);
+        if (!NewCollection) {
+          const TranslationSchema = new mongoose.Schema({
+            translations: [{
+              imdbid: String,
+              original: { title: String, description: String },
+              translated: [{
+                language: String,
+                title: String,
+                description: String
+              }]
             }]
-          }]
-        });
-        const NewCollection = mongoose.model(newCollectionName, TranslationSchema, newCollectionName);
+          });
+          NewCollection = mongoose.model(newCollectionName, TranslationSchema, newCollectionName);
+          collectionModels.set(newCollectionName, NewCollection);
+        }
         currentCollection = new NewCollection({ translations: [] });
         await currentCollection.save();
         console.log(`New collection ${newCollectionName} saved with ID ${currentCollection._id}`);
-        project.translationCollections.push(newCollectionName);
-        await project.save();
+        await Project.updateOne(
+          { _id: id },
+          { $push: { translationCollections: newCollectionName } }
+        );
+        console.log(`Updated translationCollections for project ${id}`);
+        project = await Project.findById(id).lean();
+        console.log(`Current translationCollections:`, project.translationCollections);
         rowCountInCurrentCollection = 0;
         collectionIndex++;
       }
@@ -152,12 +176,13 @@ exports.startTranslation = async (req, res) => {
           translations.push({ language: lang, title, description });
         } catch (error) {
           if (error.message === 'OpenAI quota exceeded') {
-            project.status = 'error';
-            project.errorMessage = 'OpenAI quota exceeded. Please top up your account and resume.';
-            await project.save();
+            await Project.updateOne(
+              { _id: id },
+              { status: 'error', errorMessage: 'OpenAI quota exceeded. Please top up your account and resume.' }
+            );
             setTranslationState(id, false);
-            broadcast({ type: 'PROJECT_UPDATED', project });
-            return res.status(429).json({ error: project.errorMessage });
+            broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).lean() });
+            return res.status(429).json({ error: 'Translation failed' });
           }
           throw error;
         }
@@ -181,32 +206,39 @@ exports.startTranslation = async (req, res) => {
       if (currentCollection !== project) {
         await currentCollection.save();
         console.log(`Saved translation to collection ${currentCollection._id}`);
+      } else {
+        await Project.updateOne(
+          { _id: id },
+          { $push: { translations: currentCollection.translations[currentCollection.translations.length - 1] } }
+        );
       }
       
-      project.translatedRows = i + 1;
-      project.progress = project.translatedRows / data.length * 100;
-      await project.save();
+      await Project.updateOne(
+        { _id: id },
+        { translatedRows: i + 1, progress: ((i + 1) / data.length) * 100 }
+      );
+      project = await Project.findById(id).lean();
       broadcast({ type: 'PROJECT_UPDATED', project });
       rowCountInCurrentCollection++;
     }
     
     if (getTranslationState(id)) {
-      project.status = 'completed';
-      await project.save();
+      await Project.updateOne({ _id: id }, { status: 'completed' });
       setTranslationState(id, false);
       console.log(`Translation completed for project ${id}`);
-      broadcast({ type: 'PROJECT_UPDATED', project });
+      broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).lean() });
     }
     
-    res.json(project);
+    res.json(await Project.findById(id).lean());
   } catch (error) {
     console.error('Error in translation:', error.message);
     if (project) {
-      project.status = 'error';
-      project.errorMessage = error.message;
-      await project.save();
+      await Project.updateOne(
+        { _id: id },
+        { status: 'error', errorMessage: error.message }
+      );
       setTranslationState(id, false);
-      broadcast({ type: 'PROJECT_UPDATED', project });
+      broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).lean() });
     }
     res.status(500).json({ error: 'Translation failed' });
   }
@@ -215,15 +247,14 @@ exports.startTranslation = async (req, res) => {
 exports.cancelTranslation = async (req, res) => {
   const { id } = req.params;
   try {
-    const project = await Project.findById(id);
+    const project = await Project.findById(id).lean();
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
     console.log(`Canceling translation for project ${id}`);
-    project.status = 'canceled';
-    await project.save();
+    await Project.updateOne({ _id: id }, { status: 'canceled' });
     setTranslationState(id, false);
-    broadcast({ type: 'PROJECT_UPDATED', project });
-    res.json(project);
+    broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).lean() });
+    res.json(await Project.findById(id).lean());
   } catch (error) {
     console.error('Error canceling translation:', error.message);
     res.status(500).json({ error: 'Failed to cancel' });
@@ -233,14 +264,12 @@ exports.cancelTranslation = async (req, res) => {
 exports.resumeTranslation = async (req, res) => {
   const { id } = req.params;
   try {
-    const project = await Project.findById(id);
+    const project = await Project.findById(id).lean();
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
-    project.status = 'running';
-    project.errorMessage = '';
-    await project.save();
+    await Project.updateOne({ _id: id }, { status: 'running', errorMessage: '' });
     setTranslationState(id, true);
-    broadcast({ type: 'PROJECT_UPDATED', project });
+    broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).lean() });
     
     exports.startTranslation(req, res);
   } catch (error) {
@@ -252,10 +281,14 @@ exports.resumeTranslation = async (req, res) => {
 exports.deleteProject = async (req, res) => {
   const { id } = req.params;
   try {
-    const project = await Project.findById(id);
+    const project = await Project.findById(id).lean();
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
-    for (const collectionName of project.translationCollections || []) {
+    console.log(`Deleting project ${id}, filePath: ${project.filePath}, translationCollections:`, project.translationCollections);
+    
+    // Удаляем связанные коллекции
+    const translationCollections = Array.isArray(project.translationCollections) ? project.translationCollections : [];
+    for (const collectionName of translationCollections) {
       try {
         await mongoose.connection.dropCollection(collectionName);
         console.log(`Dropped collection ${collectionName}`);
@@ -263,23 +296,38 @@ exports.deleteProject = async (req, res) => {
         console.warn(`Could not drop collection ${collectionName}: ${err.message}`);
       }
     }
-    await Project.findByIdAndDelete(id);
+    
+    // Удаляем файл из uploads
+    if (project.filePath) {
+      try {
+        const filePath = path.resolve(project.filePath);
+        await fs.unlink(filePath);
+        console.log(`Deleted file ${filePath}`);
+      } catch (err) {
+        console.warn(`Could not delete file ${project.filePath}: ${err.message}`);
+      }
+    }
+    
+    // Удаляем документ проекта
+    await Project.deleteOne({ _id: id });
+    console.log(`Deleted project document ${id}`);
+    
     setTranslationState(id, false);
     broadcast({ type: 'PROJECT_DELETED', id });
     res.json({ message: 'Project deleted' });
   } catch (error) {
     console.error('Error deleting project:', error.message);
-    res.status(500).json({ error: 'Failed to delete' });
+    res.status(500).json({ error: 'Failed to delete project' });
   }
 };
 
 exports.downloadXLSX = async (req, res) => {
   const { id } = req.params;
   try {
-    const project = await Project.findById(id);
+    const project = await Project.findById(id).lean();
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
-    console.log(`Downloading XLSX for project ${id}, translationCollections:`, project.translationCollections);
+    console.log(`Downloading XLSX for project ${id}, raw document:`, JSON.stringify(project, null, 2));
     
     const workbook = XLSX.utils.book_new();
     const data = [];
@@ -309,18 +357,23 @@ exports.downloadXLSX = async (req, res) => {
     for (const collectionName of translationCollections) {
       console.log(`Loading collection: ${collectionName}`);
       try {
-        const Collection = mongoose.model(collectionName, mongoose.Schema({
-          translations: [{
-            imdbid: String,
-            original: { title: String, description: String },
-            translated: [{
-              language: String,
-              title: String,
-              description: String
+        let Collection = collectionModels.get(collectionName);
+        if (!Collection) {
+          const TranslationSchema = new mongoose.Schema({
+            translations: [{
+              imdbid: String,
+              original: { title: String, description: String },
+              translated: [{
+                language: String,
+                title: String,
+                description: String
+              }]
             }]
-          }]
-        }));
-        const docs = await Collection.find();
+          });
+          Collection = mongoose.model(collectionName, TranslationSchema, collectionName);
+          collectionModels.set(collectionName, Collection);
+        }
+        const docs = await Collection.find().lean();
         console.log(`Found ${docs.length} documents in ${collectionName}`);
         for (const doc of docs) {
           if (doc.translations && Array.isArray(doc.translations)) {

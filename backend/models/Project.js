@@ -23,6 +23,7 @@ const ProjectSchema = new mongoose.Schema({
       description: String
     }]
   }],
+  translationCollections: { type: [String], default: [] }, // Явный дефолт
   createdAt: { type: Date, default: Date.now }
 });
 

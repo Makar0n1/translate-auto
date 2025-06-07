@@ -8,7 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const { initWebSocket } = require('./utils/websocket');
 
 const app = express();
-const port = process.env.BACKEND_PORT || 3200;
+const port = process.env.BACKEND_PORT || 3000;
 const frontendUrl = process.env.FRONTEND_URL || 'https://uiux.repsdeltsgear.store';
 
 // Настройка CORS
