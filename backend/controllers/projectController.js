@@ -71,7 +71,7 @@ exports.startTranslation = async (req, res) => {
     broadcast({ type: 'PROJECT_UPDATED', project });
     
     const workbook = XLSX.readFile(project.filePath);
-    const sheet = workbook.Sheets[workbobk.SheetNames[0]];
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
     
     let currentCollection = project;
