@@ -45,7 +45,8 @@ exports.createProject = async (req, res) => {
       filePath: file.path,
       columns,
       languages,
-      totalRows: data.length
+      totalRows: data.length,
+      translationCollections: []
     });
     
     await project.save();
@@ -66,6 +67,9 @@ exports.startTranslation = async (req, res) => {
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
     project.status = 'running';
+    if (!project.translationCollections) {
+      project.translationCollections = [];
+    }
     await project.save();
     setTranslationState(id, true);
     broadcast({ type: 'PROJECT_UPDATED', project });
@@ -74,10 +78,37 @@ exports.startTranslation = async (req, res) => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
     
-    let currentCollection = project;
+    let currentCollection = null;
     let collectionIndex = project.translationCollections.length + 1;
     let maxRowsPerCollection = 10000;
-    let rowCountInCurrentCollection = project.translations ? project.translations.length : 0;
+    let rowCountInCurrentCollection = 0;
+
+    // Определяем текущую коллекцию
+    if (project.translationCollections.length > 0) {
+      const lastCollectionName = project.translationCollections[project.translationCollections.length - 1];
+      console.log(`Using existing collection: ${lastCollectionName}`);
+      const TranslationSchema = new mongoose.Schema({
+        imdbid: String,
+        original: { title: String, description: String },
+        translated: [{
+          language: String,
+          title: String,
+          description: String
+        }],
+        translations: { type: Array, default: [] }
+      });
+      const LastCollection = mongoose.model(lastCollectionName, TranslationSchema, lastCollectionName);
+      currentCollection = await LastCollection.findOne().sort({ _id: -1 });
+      if (!currentCollection) {
+        currentCollection = new LastCollection({ translations: [] });
+        await currentCollection.save();
+      }
+      rowCountInCurrentCollection = currentCollection.translations ? currentCollection.translations.length : 0;
+    } else {
+      console.log('Using project.translations as initial collection');
+      currentCollection = project;
+      rowCountInCurrentCollection = project.translations ? project.translations.length : 0;
+    }
 
     for (let i = project.translatedRows; i < data.length; i++) {
       if (!getTranslationState(id)) {
@@ -96,15 +127,15 @@ exports.startTranslation = async (req, res) => {
             language: String,
             title: String,
             description: String
-          }]
+          }],
+          translations: { type: Array, default: [] } // Явное определение
         });
         const NewCollection = mongoose.model(newCollectionName, TranslationSchema, newCollectionName);
-        const newDoc = new NewCollection({ translations: [] }); // Явная инициализация
-        await newDoc.save();
-        currentCollection = await NewCollection.findOne({ _id: newDoc._id });
+        currentCollection = new NewCollection({ translations: [] });
+        await currentCollection.save();
+        console.log(`New collection ${newCollectionName} saved with ID ${currentCollection._id}`);
         project.translationCollections.push(newCollectionName);
         await project.save();
-        console.log(`New collection ${newCollectionName} initialized with ID ${currentCollection._id}`);
         rowCountInCurrentCollection = 0;
         collectionIndex++;
       }
@@ -135,6 +166,7 @@ exports.startTranslation = async (req, res) => {
         currentCollection.translations = [];
       }
       
+      console.log(`Adding translation for row ${i + 1} to collection`);
       currentCollection.translations.push({
         imdbid: row[project.columns.imdbid],
         original: {
@@ -146,6 +178,7 @@ exports.startTranslation = async (req, res) => {
       
       if (currentCollection !== project) {
         await currentCollection.save();
+        console.log(`Saved translation to collection ${currentCollection._id}`);
       }
       
       project.translatedRows = i + 1;
@@ -159,6 +192,7 @@ exports.startTranslation = async (req, res) => {
       project.status = 'completed';
       await project.save();
       setTranslationState(id, false);
+      console.log(`Translation completed for project ${id}`);
       broadcast({ type: 'PROJECT_UPDATED', project });
     }
     
@@ -220,7 +254,12 @@ exports.deleteProject = async (req, res) => {
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
     for (const collectionName of project.translationCollections) {
-      await mongoose.connection.dropCollection(collectionName);
+      try {
+        await mongoose.connection.dropCollection(collectionName);
+        console.log(`Dropped collection ${collectionName}`);
+      } catch (err) {
+        console.warn(`Could not drop collection ${collectionName}: ${err.message}`);
+      }
     }
     await Project.findByIdAndDelete(id);
     setTranslationState(id, false);
@@ -242,7 +281,8 @@ exports.downloadXLSX = async (req, res) => {
     const data = [];
     
     // Данные из project.translations
-    if (project.translations) {
+    if (project.translations && Array.isArray(project.translations)) {
+      console.log(`Processing ${project.translations.length} translations from project.translations`);
       project.translations.forEach(t => {
         const row = {
           imdbid: t.imdbid,
@@ -259,6 +299,7 @@ exports.downloadXLSX = async (req, res) => {
     
     // Данные из дополнительных коллекций
     for (const collectionName of project.translationCollections) {
+      console.log(`Processing translations from collection ${collectionName}`);
       const Collection = mongoose.model(collectionName, mongoose.Schema({
         imdbid: String,
         original: { title: String, description: String },
@@ -266,23 +307,30 @@ exports.downloadXLSX = async (req, res) => {
           language: String,
           title: String,
           description: String
-        }]
+        }],
+        translations: { type: Array, default: [] }
       }));
       const translations = await Collection.find();
-      translations.forEach(t => {
-        const row = {
-          imdbid: t.imdbid,
-          title: t.original.title,
-          description: t.original.description
-        };
-        t.translated.forEach(tr => {
-          row[`${tr.language} title`] = tr.title;
-          row[`${tr.language} description`] = tr.description;
-        });
-        data.push(row);
+      translations.forEach(doc => {
+        if (doc.translations && Array.isArray(doc.translations)) {
+          console.log(`Found ${doc.translations.length} translations in ${collectionName}`);
+          doc.translations.forEach(t => {
+            const row = {
+              imdbid: t.imdbid,
+              title: t.original.title,
+              description: t.original.description
+            };
+            t.translated.forEach(tr => {
+              row[`${tr.language} title`] = tr.title;
+              row[`${tr.language} description`] = tr.description;
+            });
+            data.push(row);
+          });
+        }
       });
     }
     
+    console.log(`Total translations processed for XLSX: ${data.length}`);
     const worksheet = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Translations');
     
