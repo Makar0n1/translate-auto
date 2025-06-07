@@ -1,6 +1,7 @@
+require('dotenv').config({ path: './.env' });
 const mongoose = require('mongoose');
-   const Project = require('./models/Project');
-   const Translation = require('./models/Translation');
+const Project = require('./models/Project');
+const Translation = require('./models/Translation');
 
    async function migrateTranslations() {
      try {
