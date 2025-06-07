@@ -74,9 +74,9 @@ exports.startTranslation = async (req, res) => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
     
-    let currentCollection = project; // Начинаем с project.translations
+    let currentCollection = project;
     let collectionIndex = project.translationCollections.length + 1;
-    let maxRowsPerCollection = 10000; // Лимит строк на коллекцию (~15 МБ)
+    let maxRowsPerCollection = 10000;
 
     for (let i = project.translatedRows; i < data.length; i++) {
       if (!getTranslationState(id)) {
@@ -84,8 +84,11 @@ exports.startTranslation = async (req, res) => {
         break;
       }
       
-      // Проверяем, нужно ли создать новую коллекцию
-      if (currentCollection.translations && currentCollection.translations.length >= maxRowsPerCollection) {
+      if (!currentCollection.translations) {
+        currentCollection.translations = [];
+      }
+      
+      if (currentCollection.translations.length >= maxRowsPerCollection) {
         const newCollectionName = `project_${id}_${collectionIndex}`;
         console.log(`Creating new collection: ${newCollectionName}`);
         const TranslationSchema = new mongoose.Schema({
@@ -98,8 +101,10 @@ exports.startTranslation = async (req, res) => {
           }]
         });
         const NewCollection = mongoose.model(newCollectionName, TranslationSchema, newCollectionName);
-        currentCollection = new NewCollection({}); // Создаем новый документ
-        currentCollection.translations = []; // Инициализируем translations
+        const newDoc = new NewCollection({});
+        newDoc.translations = [];
+        await newDoc.save();
+        currentCollection = await NewCollection.findOne({ _id: newDoc._id });
         project.translationCollections.push(newCollectionName);
         await project.save();
         console.log(`New collection ${newCollectionName} initialized`);
@@ -125,11 +130,6 @@ exports.startTranslation = async (req, res) => {
           }
           throw error;
         }
-      }
-      
-      if (!currentCollection.translations) {
-        console.error('currentCollection.translations is undefined, initializing...');
-        currentCollection.translations = [];
       }
       
       currentCollection.translations.push({
