@@ -85,10 +85,10 @@ exports.startTranslation = async (req, res) => {
       }
       
       // Проверяем, нужно ли создать новую коллекцию
-      if (currentCollection.translations.length >= maxRowsPerCollection) {
+      if (currentCollection.translations && currentCollection.translations.length >= maxRowsPerCollection) {
         const newCollectionName = `project_${id}_${collectionIndex}`;
         console.log(`Creating new collection: ${newCollectionName}`);
-        const NewCollection = mongoose.model(newCollectionName, mongoose.Schema({
+        const TranslationSchema = new mongoose.Schema({
           imdbid: String,
           original: { title: String, description: String },
           translated: [{
@@ -96,10 +96,13 @@ exports.startTranslation = async (req, res) => {
             title: String,
             description: String
           }]
-        }));
+        });
+        const NewCollection = mongoose.model(newCollectionName, TranslationSchema, newCollectionName);
+        currentCollection = new NewCollection({}); // Создаем новый документ
+        currentCollection.translations = []; // Инициализируем translations
         project.translationCollections.push(newCollectionName);
         await project.save();
-        currentCollection = new NewCollection({ translations: [] });
+        console.log(`New collection ${newCollectionName} initialized`);
         collectionIndex++;
       }
       
@@ -122,6 +125,11 @@ exports.startTranslation = async (req, res) => {
           }
           throw error;
         }
+      }
+      
+      if (!currentCollection.translations) {
+        console.error('currentCollection.translations is undefined, initializing...');
+        currentCollection.translations = [];
       }
       
       currentCollection.translations.push({
