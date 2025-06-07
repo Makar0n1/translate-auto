@@ -128,7 +128,7 @@ exports.startTranslation = async (req, res) => {
             title: String,
             description: String
           }],
-          translations: { type: Array, default: [] } // Явное определение
+          translations: { type: Array, default: [] }
         });
         const NewCollection = mongoose.model(newCollectionName, TranslationSchema, newCollectionName);
         currentCollection = new NewCollection({ translations: [] });
@@ -253,7 +253,7 @@ exports.deleteProject = async (req, res) => {
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
-    for (const collectionName of project.translationCollections) {
+    for (const collectionName of project.translationCollections || []) {
       try {
         await mongoose.connection.dropCollection(collectionName);
         console.log(`Dropped collection ${collectionName}`);
@@ -277,6 +277,8 @@ exports.downloadXLSX = async (req, res) => {
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
+    console.log(`Downloading XLSX for project ${id}, translationCollections:`, project.translationCollections);
+    
     const workbook = XLSX.utils.book_new();
     const data = [];
     
@@ -295,10 +297,13 @@ exports.downloadXLSX = async (req, res) => {
         });
         data.push(row);
       });
+    } else {
+      console.log('No translations in project.translations');
     }
     
     // Данные из дополнительных коллекций
-    for (const collectionName of project.translationCollections) {
+    const translationCollections = Array.isArray(project.translationCollections) ? project.translationCollections : [];
+    for (const collectionName of translationCollections) {
       console.log(`Processing translations from collection ${collectionName}`);
       const Collection = mongoose.model(collectionName, mongoose.Schema({
         imdbid: String,
@@ -326,6 +331,8 @@ exports.downloadXLSX = async (req, res) => {
             });
             data.push(row);
           });
+        } else {
+          console.log(`No translations array in document of ${collectionName}`);
         }
       });
     }
