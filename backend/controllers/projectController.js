@@ -303,41 +303,51 @@ exports.downloadXLSX = async (req, res) => {
     
     // Данные из дополнительных коллекций
     const translationCollections = Array.isArray(project.translationCollections) ? project.translationCollections : [];
+    console.log(`Processing ${translationCollections.length} additional collections`);
     for (const collectionName of translationCollections) {
-      console.log(`Processing translations from collection ${collectionName}`);
-      const Collection = mongoose.model(collectionName, mongoose.Schema({
-        imdbid: String,
-        original: { title: String, description: String },
-        translated: [{
-          language: String,
-          title: String,
-          description: String
-        }],
-        translations: { type: Array, default: [] }
-      }));
-      const translations = await Collection.find();
-      translations.forEach(doc => {
-        if (doc.translations && Array.isArray(doc.translations)) {
-          console.log(`Found ${doc.translations.length} translations in ${collectionName}`);
-          doc.translations.forEach(t => {
-            const row = {
-              imdbid: t.imdbid,
-              title: t.original.title,
-              description: t.original.description
-            };
-            t.translated.forEach(tr => {
-              row[`${tr.language} title`] = tr.title;
-              row[`${tr.language} description`] = tr.description;
+      console.log(`Loading collection: ${collectionName}`);
+      try {
+        const Collection = mongoose.model(collectionName, mongoose.Schema({
+          translations: [{
+            imdbid: String,
+            original: { title: String, description: String },
+            translated: [{
+              language: String,
+              title: String,
+              description: String
+            }]
+          }]
+        }));
+        const docs = await Collection.find();
+        console.log(`Found ${docs.length} documents in ${collectionName}`);
+        for (const doc of docs) {
+          if (doc.translations && Array.isArray(doc.translations)) {
+            console.log(`Processing ${doc.translations.length} translations in ${collectionName}`);
+            doc.translations.forEach(t => {
+              const row = {
+                imdbid: t.imdbid,
+                title: t.original.title,
+                description: t.original.description
+              };
+              t.translated.forEach(tr => {
+                row[`${tr.language} title`] = tr.title;
+                row[`${tr.language} description`] = tr.description;
+              });
+              data.push(row);
             });
-            data.push(row);
-          });
-        } else {
-          console.log(`No translations array in document of ${collectionName}`);
+          } else {
+            console.log(`No translations array in document of ${collectionName}`);
+          }
         }
-      });
+      } catch (err) {
+        console.error(`Error loading collection ${collectionName}:`, err.message);
+      }
     }
     
     console.log(`Total translations processed for XLSX: ${data.length}`);
+    if (data.length === 0) {
+      console.warn('No translations found for XLSX generation');
+    }
     const worksheet = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Translations');
     
