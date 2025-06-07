@@ -3,6 +3,7 @@ const XLSX = require('xlsx');
 const multer = require('multer');
 const { translateText } = require('../utils/openai');
 const Project = require('../models/Project');
+const Translation = require('../models/Translation');
 const { broadcast } = require('../utils/websocket');
 const { setTranslationState, getTranslationState } = require('../utils/translationState');
 
@@ -60,8 +61,9 @@ exports.createProject = async (req, res) => {
 
 exports.startTranslation = async (req, res) => {
   const { id } = req.params;
+  let project;
   try {
-    const project = await Project.findById(id);
+    project = await Project.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
     project.status = 'running';
@@ -100,7 +102,8 @@ exports.startTranslation = async (req, res) => {
         }
       }
       
-      project.translations.push({
+      await Translation.create({
+        projectId: id,
         imdbid: row[project.columns.imdbid],
         original: {
           title: row[project.columns.title],
@@ -125,11 +128,13 @@ exports.startTranslation = async (req, res) => {
     res.json(project);
   } catch (error) {
     console.error('Error in translation:', error.message);
-    project.status = 'error';
-    project.errorMessage = error.message;
-    await project.save();
-    setTranslationState(id, false);
-    broadcast({ type: 'PROJECT_UPDATED', project });
+    if (project) {
+      project.status = 'error';
+      project.errorMessage = error.message;
+      await project.save();
+      setTranslationState(id, false);
+      broadcast({ type: 'PROJECT_UPDATED', project });
+    }
     res.status(500).json({ error: 'Translation failed' });
   }
 };
@@ -175,6 +180,7 @@ exports.deleteProject = async (req, res) => {
   const { id } = req.params;
   try {
     await Project.findByIdAndDelete(id);
+    await Translation.deleteMany({ projectId: id });
     setTranslationState(id, false);
     broadcast({ type: 'PROJECT_DELETED', id });
     res.json({ message: 'Project deleted' });
@@ -190,10 +196,12 @@ exports.downloadXLSX = async (req, res) => {
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
+    const translations = await Translation.find({ projectId: id });
+    
     const workbook = XLSX.utils.book_new();
     const data = [];
     
-    project.translations.forEach(t => {
+    translations.forEach(t => {
       const row = {
         imdbid: t.imdbid,
         title: t.original.title,
