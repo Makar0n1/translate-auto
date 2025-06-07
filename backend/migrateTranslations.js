@@ -1,34 +1,55 @@
 require('dotenv').config({ path: './.env' });
 const mongoose = require('mongoose');
 const Project = require('./models/Project');
-const Translation = require('./models/Translation');
 
-   async function migrateTranslations() {
-     try {
-       await mongoose.connect(process.env.MONGO_URI);
-       console.log('Connected to MongoDB');
+async function migrateTranslationsToCollection(projectId) {
+  try {
+    if (!process.env.MONGO_URI) {
+      throw new Error('MONGO_URI is not defined in .env');
+    }
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log('Connected to MongoDB');
 
-       const projects = await Project.find({ translations: { $exists: true, $ne: [] } });
-       for (const project of projects) {
-         console.log(`Migrating translations for project ${project._id}`);
-         for (const t of project.translations) {
-           await Translation.create({
-             projectId: project._id,
-             imdbid: t.imdbid,
-             original: t.original,
-             translated: t.translated
-           });
-         }
-         project.translations = [];
-         await project.save();
-         console.log(`Migrated ${project.translatedRows} translations for project ${project._id}`);
-       }
-       console.log('Migration completed');
-       mongoose.disconnect();
-     } catch (error) {
-       console.error('Migration error:', error.message);
-       mongoose.disconnect();
-     }
-   }
+    const project = await Project.findById(projectId);
+    if (!project) {
+      throw new Error(`Project ${projectId} not found`);
+    }
 
-   migrateTranslations();
+    const collectionName = `project_${projectId}_1`;
+    console.log(`Migrating translations to collection ${collectionName}`);
+
+    // Создаем модель для новой коллекции
+    const TranslationCollection = mongoose.model(collectionName, mongoose.Schema({
+      imdbid: String,
+      original: { title: String, description: String },
+      translated: [{
+        language: String,
+        title: String,
+        description: String
+      }]
+    }));
+
+    // Переносим данные
+    for (const t of project.translations) {
+      await TranslationCollection.create({
+        imdbid: t.imdbid,
+        original: t.original,
+        translated: t.translated
+      });
+    }
+
+    // Очищаем translations и добавляем новую коллекцию
+    project.translations = [];
+    project.translationCollections = [collectionName];
+    await project.save();
+
+    console.log(`Migrated ${project.translatedRows} translations for project ${projectId}`);
+    mongoose.disconnect();
+  } catch (error) {
+    console.error('Migration error:', error.message);
+    mongoose.disconnect();
+  }
+}
+
+// Замени <project_id> на реальный ID проекта
+migrateTranslationsToCollection('684142d16f1057564d74bbda');
