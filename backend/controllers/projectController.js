@@ -91,7 +91,7 @@ exports.startTranslation = async (req, res) => {
     
     let currentCollection = null;
     let collectionIndex = project.translationCollections.length + 1;
-    let maxRowsPerCollection = 5; // Для теста
+    let maxRowsPerCollection = 5000; // Для теста
     let rowCountInCurrentCollection = 0;
 
     // Определяем текущую коллекцию
