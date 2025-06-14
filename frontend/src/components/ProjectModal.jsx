@@ -161,7 +161,7 @@ function ProjectModal({ type, onClose, onAdd }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
+        className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 overflow-y-auto"
         onClick={handleClickOutside}
       >
         <motion.div
@@ -170,30 +170,30 @@ function ProjectModal({ type, onClose, onAdd }) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-          className="bg-dark-blue p-8 rounded-xl border border-silver shadow-neon w-full max-w-lg"
+          className="bg-dark-blue p-4 sm:p-6 md:p-8 rounded-xl border border-silver shadow-neon w-full max-w-[90vw] sm:max-w-lg max-h-[90vh] overflow-y-auto"
         >
-          <h2 className="text-2xl font-bold text-emerald mb-6 text-center">
+          <h2 className="text-xl sm:text-2xl font-bold text-emerald mb-4 sm:mb-6 text-center">
             New {type === 'csv' ? 'CSV' : 'Standard'} Project
           </h2>
           {errors.general && (
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-red-400 mb-4 text-center text-sm"
+              className="text-red-400 mb-4 text-center text-xs sm:text-sm"
             >
               {errors.general}
             </motion.p>
           )}
           <div className="flex mb-4">
             <button
-              className={`flex-1 py-2 px-4 text-white ${tab === 'translation' ? 'bg-emerald-500' : 'bg-gray-700'} rounded-l-lg transition-all duration-300`}
+              className={`flex-1 py-2 px-2 sm:px-4 text-white text-xs sm:text-base ${tab === 'translation' ? 'bg-emerald-500' : 'bg-gray-700'} rounded-l-lg transition-all duration-300`}
               onClick={() => setTab('translation')}
             >
               Translation
             </button>
             {type === 'csv' && (
               <button
-                className={`flex-1 py-2 px-4 text-white ${tab === 'import' ? 'bg-emerald-500' : 'bg-gray-700'} rounded-r-lg transition-all duration-300 ${!importToSite ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`flex-1 py-2 px-2 sm:px-4 text-white text-xs sm:text-base ${tab === 'import' ? 'bg-emerald-500' : 'bg-gray-700'} rounded-r-lg transition-all duration-300 ${!importToSite ? 'opacity-50 cursor-not-allowed' : ''}`}
                 onClick={() => importToSite && setTab('import')}
                 disabled={!importToSite}
               >
@@ -210,14 +210,14 @@ function ProjectModal({ type, onClose, onAdd }) {
                   placeholder="Project Name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className={`w-full p-3 mb-4 bg-gray-800 border ${errors.name ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                  className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.name ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                   disabled={isLoading}
                   data-tooltip-id="tooltip-name"
                   data-tooltip-content="Enter project name"
                   data-tooltip-delay-show={1000}
                 />
                 {errors.name && <p className="text-red-400 text-xs mb-2">{errors.name}</p>}
-                <div className="mb-4">
+                <div className="mb-2 sm:mb-4">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -231,7 +231,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                     whileTap={{ scale: 0.95 }}
                     type="button"
                     onClick={() => fileInputRef.current.click()}
-                    className={`bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-all duration-300 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`bg-emerald-500 text-white px-3 sm:px-4 py-1 sm:py-2 rounded-lg hover:bg-emerald-600 transition-all duration-300 text-xs sm:text-base ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     disabled={isLoading}
                     data-tooltip-id="tooltip-file"
                     data-tooltip-content="Upload XLSX file"
@@ -239,7 +239,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                   >
                     Choose File
                   </motion.button>
-                  <span className="ml-2 text-silver text-sm">
+                  <span className="ml-2 text-silver text-xs sm:text-sm">
                     {file ? file.name : 'No file selected'}
                   </span>
                   {errors.file && <p className="text-red-400 text-xs mt-1">{errors.file}</p>}
@@ -252,7 +252,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       placeholder="ID Column"
                       value={columns.id}
                       onChange={(e) => setColumns({ ...columns, id: e.target.value })}
-                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.id ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.id ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
                       data-tooltip-id="tooltip-id"
                       data-tooltip-content="Column name for ID"
@@ -265,7 +265,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       placeholder="Title Column"
                       value={columns.Title}
                       onChange={(e) => setColumns({ ...columns, Title: e.target.value })}
-                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.Title ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.Title ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
                       data-tooltip-id="tooltip-title"
                       data-tooltip-content="Column name for Title"
@@ -278,7 +278,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       placeholder="Content Column"
                       value={columns.Content}
                       onChange={(e) => setColumns({ ...columns, Content: e.target.value })}
-                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.Content ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.Content ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
                       data-tooltip-id="tooltip-content"
                       data-tooltip-content="Column name for Content"
@@ -291,7 +291,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       placeholder="Permalink Column"
                       value={columns.Permalink}
                       onChange={(e) => setColumns({ ...columns, Permalink: e.target.value })}
-                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.Permalink ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.Permalink ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
                       data-tooltip-id="tooltip-permalink"
                       data-tooltip-content="Column name for Permalink"
@@ -304,7 +304,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       placeholder="Slug Column"
                       value={columns.Slug}
                       onChange={(e) => setColumns({ ...columns, Slug: e.target.value })}
-                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.Slug ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.Slug ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
                       data-tooltip-id="tooltip-slug"
                       data-tooltip-content="Column name for Slug"
@@ -320,7 +320,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       placeholder="IMDb ID Column"
                       value={columns.imdbid}
                       onChange={(e) => setColumns({ ...columns, imdbid: e.target.value })}
-                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.imdbid ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.imdbid ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
                       data-tooltip-id="tooltip-imdbid"
                       data-tooltip-content="Column name for IMDb ID"
@@ -333,7 +333,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       placeholder="Title Column"
                       value={columns.title}
                       onChange={(e) => setColumns({ ...columns, title: e.target.value })}
-                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.title ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.title ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
                       data-tooltip-id="tooltip-title-std"
                       data-tooltip-content="Column name for Title"
@@ -346,7 +346,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       placeholder="Description Column"
                       value={columns.description}
                       onChange={(e) => setColumns({ ...columns, description: e.target.value })}
-                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.description ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.description ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
                       data-tooltip-id="tooltip-description"
                       data-tooltip-content="Column name for Description"
@@ -355,7 +355,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                     {errors.description && <p className="text-red-400 text-xs mb-2">{errors.description}</p>}
                   </>
                 )}
-                <div className="mb-4">
+                <div className="mb-2 sm:mb-4">
                   <div className="flex gap-2">
                     <motion.input
                       whileFocus={{ borderColor: '#2A9D8F' }}
@@ -363,7 +363,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       placeholder="Language codes (e.g., ru, es)"
                       value={newLanguage}
                       onChange={(e) => setNewLanguage(e.target.value)}
-                      className={`w-full p-3 border ${errors.languages ? 'border-red-400' : 'border-silver'} bg-gray-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      className={`w-full p-2 sm:p-3 border ${errors.languages ? 'border-red-400' : 'border-silver'} bg-gray-800 rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
                       data-tooltip-id="tooltip-language"
                       data-tooltip-content="Enter a language code"
@@ -374,7 +374,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       whileTap={{ scale: 0.95 }}
                       type="button"
                       onClick={handleAddLanguage}
-                      className="bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-all duration-300"
+                      className="bg-emerald-500 text-white px-3 sm:px-4 py-1 sm:py-2 rounded-lg hover:bg-emerald-600 transition-all duration-300 text-xs sm:text-base"
                       disabled={isLoading}
                       data-tooltip-id="tooltip-add-lang"
                       data-tooltip-content="Add language"
@@ -390,7 +390,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                         key={lang}
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="inline-block bg-emerald-500 text-white rounded-full px-3 py-1 text-sm"
+                        className="inline-block bg-emerald-500 text-white rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm"
                       >
                         {lang}
                       </motion.span>
@@ -398,16 +398,16 @@ function ProjectModal({ type, onClose, onAdd }) {
                   </div>
                 </div>
                 {type === 'csv' && (
-                  <div className="mb-4 flex items-center">
+                  <div className="mb-2 sm:mb-4 flex items-center">
                     <input
                       type="checkbox"
                       checked={importToSite}
                       onChange={(e) => setImportToSite(e.target.checked)}
-                      className="mr-2 h-4 w-4 text-emerald-500 border-silver rounded focus:ring-emerald-500"
+                      className="mr-2 h-3 sm:h-4 w-3 sm:w-4 text-emerald-500 border-silver rounded focus:ring-emerald-500"
                       disabled={isLoading}
                       id="importToSite"
                     />
-                    <label htmlFor="importToSite" className="text-silver text-sm">
+                    <label htmlFor="importToSite" className="text-silver text-xs sm:text-sm">
                       Import translations to website
                     </label>
                   </div>
@@ -422,7 +422,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                   placeholder="Website URL (e.g., https://example.com)"
                   value={domain.url}
                   onChange={(e) => setDomain({ ...domain, url: e.target.value })}
-                  className={`w-full p-3 mb-4 bg-gray-800 border ${errors.domainUrl ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                  className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.domainUrl ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                   disabled={isLoading}
                   data-tooltip-id="tooltip-domain-url"
                   data-tooltip-content="Enter website URL (API endpoint will be added automatically)"
@@ -435,7 +435,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                   placeholder="Login"
                   value={domain.login}
                   onChange={(e) => setDomain({ ...domain, login: e.target.value })}
-                  className={`w-full p-3 mb-4 bg-gray-800 border ${errors.domainLogin ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                  className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.domainLogin ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                   disabled={isLoading}
                   data-tooltip-id="tooltip-domain-login"
                   data-tooltip-content="Enter WordPress login"
@@ -448,23 +448,23 @@ function ProjectModal({ type, onClose, onAdd }) {
                   placeholder="API Password"
                   value={domain.apiPassword}
                   onChange={(e) => setDomain({ ...domain, apiPassword: e.target.value })}
-                  className={`w-full p-3 mb-4 bg-gray-800 border ${errors.domainPassword ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                  className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.domainPassword ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                   disabled={isLoading}
                   data-tooltip-id="tooltip-domain-password"
                   data-tooltip-content="Enter WordPress API password"
                   data-tooltip-delay-show={1000}
                 />
                 {errors.domainPassword && <p className="text-red-400 text-xs mb-2">{errors.domainPassword}</p>}
-                <div className="mb-4 flex items-center">
+                <div className="mb-2 sm:mb-4 flex items-center">
                   <input
                     type="checkbox"
                     checked={domain.isWordPress}
                     onChange={(e) => setDomain({ ...domain, isWordPress: e.target.checked })}
-                    className={`mr-2 h-4 w-4 text-emerald-500 border ${errors.isWordPress ? 'border-red-400' : 'border-silver'} rounded focus:ring-emerald-500`}
+                    className={`mr-2 h-3 sm:h-4 w-3 sm:w-4 text-emerald-500 border ${errors.isWordPress ? 'border-red-400' : 'border-silver'} rounded focus:ring-emerald-500`}
                     disabled={isLoading}
                     id="isWordPress"
                   />
-                  <label htmlFor="isWordPress" className="text-silver text-sm">
+                  <label htmlFor="isWordPress" className="text-silver text-xs sm:text-sm">
                     This is a WordPress site (required)
                   </label>
                 </div>
@@ -475,13 +475,13 @@ function ProjectModal({ type, onClose, onAdd }) {
               whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               type="submit"
-              className={`w-full bg-emerald-500 text-white p-3 rounded-lg hover:bg-emerald-600 transition-all duration-300 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full bg-emerald-500 text-white p-2 sm:p-3 rounded-lg hover:bg-emerald-600 transition-all duration-300 text-sm sm:text-base ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading}
               data-tooltip-id="tooltip-submit"
               data-tooltip-content="Create project"
               data-tooltip-delay-show={1000}
             >
-              {isLoading ? <ClipLoader color="#FFF" size={20} /> : 'Create Project'}
+              {isLoading ? <ClipLoader color="#FFF" size={16} /> : 'Create Project'}
             </motion.button>
           </form>
         </motion.div>

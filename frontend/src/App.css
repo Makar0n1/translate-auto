@@ -33,6 +33,10 @@ body {
   border: 1px solid rgba(233, 236, 239, 0.2);
 }
 
+.bg-orange-500 {
+  background-color: #F4A261;
+}
+
 .shadow-neon {
   box-shadow: 0 0 15px rgba(42, 157, 143, 0.3);
 }
@@ -51,9 +55,9 @@ body {
 }
 
 .nav-tab:hover {
-  background: rgba(42, 157, 143, 0.2);
+  background: rgba(42, 157, 143, 0.3);
   color: #2A9D8F;
-  box-shadow: 0 0 10px rgba(42, 157, 143, 0.3);
+  box-shadow: 0 0 10px rgba(42, 157, 143, 0.5);
 }
 
 .nav-tab-active {
@@ -62,12 +66,39 @@ body {
   box-shadow: 0 0 15px rgba(42, 157, 143, 0.5);
 }
 
+.nav-tab-mobile {
+  padding: 8px 12px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #E9ECEF;
+  background: rgba(26, 42, 68, 0.5);
+  transition: all 0.2s ease;
+  flex: 1;
+  text-align: center;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-tab-mobile:hover {
+  background: rgba(42, 157, 143, 0.4);
+  color: #2A9D8F;
+  box-shadow: 0 0 12px rgba(42, 157, 143, 0.6);
+}
+
+.nav-tab-mobile-active {
+  background: #2A9D8F;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(42, 157, 143, 0.5);
+}
+
 .tooltip-custom {
   background: #1A2A44;
   color: #E9ECEF;
   border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: 4px 8px;
+  font-size: 10px;
   box-shadow: 0 0 10px rgba(42, 157, 143, 0.3);
   z-index: 1000;
   opacity: 0;
@@ -92,4 +123,98 @@ button:disabled {
 
 .cursor-pointer {
   cursor: pointer;
+}
+
+/* Modal scrollbar */
+.max-h-[90vh]::-webkit-scrollbar {
+  width: 4px;
+}
+
+.max-h-[90vh]::-webkit-scrollbar-track {
+  background: #1A2A44;
+}
+
+.max-h-[90vh]::-webkit-scrollbar-thumb {
+  background: #2A9D8F;
+  border-radius: 2px;
+}
+
+.max-h-[90vh]::-webkit-scrollbar-thumb:hover {
+  background: #26a69a;
+}
+
+/* Project card scrollbar */
+.max-h-28::-webkit-scrollbar, .max-h-32::-webkit-scrollbar, .max-h-40::-webkit-scrollbar {
+  width: 4px;
+}
+
+.max-h-28::-webkit-scrollbar-track, .max-h-32::-webkit-scrollbar-track, .max-h-40::-webkit-scrollbar-track {
+  background: #1A2A44;
+}
+
+.max-h-28::-webkit-scrollbar-thumb, .max-h-32::-webkit-scrollbar-thumb, .max-h-40::-webkit-scrollbar-thumb {
+  background: #2A9D8F;
+  border-radius: 2px;
+}
+
+.max-h-28::-webkit-scrollbar-thumb:hover, .max-h-32::-webkit-scrollbar-thumb:hover, .max-h-40::-webkit-scrollbar-thumb:hover {
+  background: #26a69a;
+}
+
+/* Container adjustments */
+.container {
+  max-width: 100%;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 640px) {
+  .container {
+    max-width: 640px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .container {
+    max-width: 768px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    max-width: 1024px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .container {
+    max-width: 1280px;
+  }
+}
+
+/* Full-width header and footer */
+header, footer {
+  width: 100%;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 639px) {
+  .nav-tab {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+  .container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .grid {
+    justify-content: stretch;
+  }
+  .grid > * {
+    width: 100%;
+  }
 }

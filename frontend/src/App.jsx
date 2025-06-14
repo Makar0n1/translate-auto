@@ -5,8 +5,10 @@ import { ClipLoader } from 'react-spinners';
 import LoginForm from './components/LoginForm';
 import ProjectCard from './components/ProjectCard';
 import ProjectModal from './components/ProjectModal';
+import MobileTabBar from './components/MobileTabBar';
 import axios from 'axios';
 import './App.css';
+import logo from './assets/logo.png';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3200';
 const WS_URL = import.meta.env.VITE_NODE_ENV === 'production' ? 'wss://api.repsdeltsgear.store' : 'ws://localhost:3200';
@@ -173,48 +175,75 @@ function App() {
       <div className="flex flex-col min-h-screen bg-futuristic">
         <NavigateRef navigateRef={navigate} />
         {isAuthenticated && (
-          <motion.header
-            initial={{ y: -50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-            onAnimationComplete={handleAnimationComplete}
-            className="bg-holo text-white p-4 shadow-neon"
-          >
-            <div className="container mx-auto flex justify-between items-center">
-              <motion.h1
-                className="text-3xl font-extrabold text-emerald cursor-pointer"
-                whileHover={{ scale: 1.05 }}
-                onClick={() => window.location.href = '/'}
-              >
+          <>
+            {/* Desktop/Laptop Header */}
+            <motion.header
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+              onAnimationComplete={handleAnimationComplete}
+              className="bg-holo text-white p-4 sm:p-6 shadow-neon w-full hidden md:flex"
+            >
+              <div className="container mx-auto flex justify-between items-center">
+                <motion.div
+                  className="flex items-center cursor-pointer"
+                  whileHover={{ scale: 1.05 }}
+                  onClick={() => window.location.href = '/'}
+                >
+                  <img src={logo} alt="AI-Translation Logo" className="h-6 sm:h-8 mr-2" />
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-emerald">
+                    AI-Translation
+                  </h1>
+                </motion.div>
+                <nav className="flex gap-4 items-center">
+                  <NavLink
+                    to="/dashboard"
+                    className={({ isActive }) => `nav-tab text-sm ${isActive ? 'nav-tab-active' : ''}`}
+                    data-tooltip-id="tooltip" data-tooltip-content="View Standard Projects"
+                  >
+                    Standard
+                  </NavLink>
+                  <NavLink
+                    to="/csv-translation"
+                    className={({ isActive }) => `nav-tab text-sm ${isActive ? 'nav-tab-active' : ''}`}
+                    data-tooltip-id="tooltip" data-tooltip-content="View CSV Projects"
+                  >
+                    CSV
+                  </NavLink>
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => { setModalType('csv'); setIsModalOpen(true); }}
+                    className="nav-tab bg-emerald-500 hover:bg-emerald-600 text-sm"
+                    data-tooltip-id="tooltip" data-tooltip-content="Create Project"
+                  >
+                    + New Project
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleLogout}
+                    className="nav-tab bg-red-500 hover:bg-red-600 text-sm"
+                    data-tooltip-id="tooltip" data-tooltip-content="Sign out"
+                  >
+                    Logout
+                  </motion.button>
+                </nav>
+              </div>
+            </motion.header>
+            {/* Mobile Header */}
+            <motion.header
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+              onAnimationComplete={handleAnimationComplete}
+              className="bg-holo text-white p-4 shadow-neon w-full flex justify-center items-center md:hidden"
+            >
+              <h1 className="text-xl font-extrabold text-emerald">
                 AI-Translation
-              </motion.h1>
-              <nav className="flex gap-4">
-                <NavLink
-                  to="/dashboard"
-                  className={({ isActive }) => `nav-tab ${isActive ? 'nav-tab-active' : ''}`}
-                  data-tooltip-id="tooltip" data-tooltip-content="View Standard Projects"
-                >
-                  Standard
-                </NavLink>
-                <NavLink
-                  to="/csv-translation"
-                  className={({ isActive }) => `nav-tab ${isActive ? 'nav-tab-active' : ''}`}
-                  data-tooltip-id="tooltip" data-tooltip-content="View CSV Projects"
-                >
-                  CSV
-                </NavLink>
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleLogout}
-                  className="nav-tab bg-emerald-500 hover:bg-emerald-600"
-                  data-tooltip-id="tooltip" data-tooltip-content="Sign out"
-                >
-                  Logout
-                </motion.button>
-              </nav>
-            </div>
-          </motion.header>
+              </h1>
+            </motion.header>
+          </>
         )}
         <Routes>
           <Route path="/login" element={
@@ -226,31 +255,19 @@ function App() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.7 }}
-                className="container mx-auto px-4 py-8 flex-grow"
+                className="container mx-auto px-4 py-6 sm:py-8 flex-grow w-full pb-16 md:pb-0"
               >
-                <div className="flex justify-between items-center mb-8">
-                  <h2 className="text-3xl font-bold text-emerald">Standard Projects</h2>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => { setModalType('standard'); setIsModalOpen(true); }}
-                    className="bg-emerald-500 text-white px-6 py-2 rounded-lg hover:bg-emerald-600 shadow-neon transition-all duration-300"
-                    data-tooltip-id="tooltip" data-tooltip-content="Create new standard project"
-                  >
-                    + New Project
-                  </motion.button>
-                </div>
                 {isLoading ? (
                   <div className="flex justify-center items-center h-64">
                     <ClipLoader color="#2A9D8F" size={50} cssOverride={{ borderWidth: '4px' }} />
                   </div>
                 ) : standardProjects.length === 0 ? (
-                  <div className="flex items-center justify-center h-64 text-center text-silver text-lg">
-                    No standard projects yet. Create one to get started!
+                  <div className="flex items-center justify-center h-64 text-center text-silver text-sm sm:text-lg">
+                    Your projects will be displayed here
                   </div>
                 ) : (
                   <motion.div
-                    className="grid gap-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                    className="grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
                     initial="hidden"
                     animate="visible"
                     variants={{
@@ -284,31 +301,19 @@ function App() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.7 }}
-                className="container mx-auto px-4 py-8 flex-grow"
+                className="container mx-auto px-4 py-6 sm:py-8 flex-grow w-full pb-16 md:pb-0"
               >
-                <div className="flex justify-between items-center mb-8">
-                  <h2 className="text-3xl font-bold text-emerald">CSV Translation Projects</h2>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => { setModalType('csv'); setIsModalOpen(true); }}
-                    className="bg-emerald-500 text-white px-6 py-2 rounded-lg hover:bg-emerald-600 shadow-neon transition-all duration-300"
-                    data-tooltip-id="tooltip" data-tooltip-content="Create new CSV project"
-                  >
-                    + New CSV Project
-                  </motion.button>
-                </div>
                 {isLoading ? (
                   <div className="flex justify-center items-center h-64">
                     <ClipLoader color="#2A9D8F" size={50} cssOverride={{ borderWidth: '4px' }} />
                   </div>
                 ) : csvProjects.length === 0 ? (
-                  <div className="flex items-center justify-center h-64 text-center text-silver text-lg">
-                    No CSV projects yet. Create one to get started!
+                  <div className="flex items-center justify-center h-64 text-center text-silver text-sm sm:text-lg">
+                    Your projects will be displayed here
                   </div>
                 ) : (
                   <motion.div
-                    className="grid gap-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                    className="grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
                     initial="hidden"
                     animate="visible"
                     variants={{
@@ -339,17 +344,24 @@ function App() {
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
         {isAuthenticated && (
-          <motion.footer
-            initial={{ y: 50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-            onAnimationComplete={handleAnimationComplete}
-            className="bg-holo text-white py-6 shadow-neon"
-          >
-            <div className="container mx-auto text-center">
-              <p className="text-sm text-silver">AI-Translation © 2025</p>
-            </div>
-          </motion.footer>
+          <>
+            <motion.footer
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+              onAnimationComplete={handleAnimationComplete}
+              className="bg-holo text-white py-4 sm:py-6 shadow-neon w-full hidden md:block"
+            >
+              <div className="container mx-auto text-center">
+                <p className="text-xs sm:text-sm text-silver">AI-Translation © 2025</p>
+              </div>
+            </motion.footer>
+            <MobileTabBar
+              setModalType={setModalType}
+              setIsModalOpen={setIsModalOpen}
+              handleLogout={handleLogout}
+            />
+          </>
         )}
       </div>
     </BrowserRouter>

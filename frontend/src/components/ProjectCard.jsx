@@ -6,7 +6,7 @@ import axios from 'axios';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3200';
 
-function ProjectCard({ project, index }) {
+function ProjectCard({ project, index, isActionLoading }) {
   const [isLoading, setIsLoading] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
 
@@ -23,7 +23,7 @@ function ProjectCard({ project, index }) {
     setIsLoading(true);
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       await axios.post(`${BACKEND_URL}/api/projects/${project._id}/${action}`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         signal: controller.signal
@@ -59,7 +59,6 @@ function ProjectCard({ project, index }) {
     window.location.href = `${BACKEND_URL}/api/projects/${project._id}/download`;
   };
 
-  // Сброс isLoading при обновлении статуса
   useEffect(() => {
     if (project.status === 'running' || project.status === 'canceled') {
       setIsLoading(false);
@@ -75,36 +74,36 @@ function ProjectCard({ project, index }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: index * 0.1 }}
-        className="bg-dark-blue p-6 rounded-xl border border-silver shadow-lg hover:shadow-emerald transition-all duration-300"
+        className="bg-dark-blue p-3 sm:p-4 md:p-6 rounded-xl border border-silver shadow-lg hover:shadow-emerald transition-all duration-300 w-full mx-auto"
         whileHover={{ scale: 1.02 }}
       >
-        <h3 className="text-xl font-semibold text-white mb-2 truncate">{project.name}</h3>
-        <div className="flex items-center mb-3">
-          <div className={`w-3 h-3 rounded-full ${statusColors[project.status]} mr-2 animate-pulse`} />
-          <p className="text-silver text-sm">{project.status.charAt(0).toUpperCase() + project.status.slice(1)}</p>
+        <h3 className="text-base sm:text-lg md:text-xl font-semibold text-white mb-1 sm:mb-2 truncate">{project.name}</h3>
+        <div className="flex items-center mb-1 sm:mb-2 md:mb-3">
+          <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${statusColors[project.status]} mr-1 sm:mr-2 animate-pulse`} />
+          <p className="text-silver text-xs sm:text-sm">{project.status.charAt(0).toUpperCase() + project.status.slice(1)}</p>
         </div>
         {project.errorMessage && (
-          <p className="text-red-400 mb-3 text-sm truncate">{project.errorMessage}</p>
+          <p className="text-red-400 mb-1 sm:mb-2 md:mb-3 text-xs sm:text-sm truncate">{project.errorMessage}</p>
         )}
-        <p className="text-silver text-sm mb-1">
+        <p className="text-silver text-xs sm:text-sm mb-0.5 sm:mb-1">
           Type: {project.importToSite ? `Translate + Import (${project.domainId?.url || 'Unknown'})` : 'Translate Only'}
         </p>
-        <p className="text-silver text-sm mb-1">Translation Progress: {project.translatedRows}/{project.totalRows} rows</p>
+        <p className="text-silver text-xs sm:text-sm mb-0.5 sm:mb-1">Translation Progress: {project.translatedRows}/{project.totalRows} rows</p>
         {project.importToSite && (
-          <p className="text-silver text-sm mb-1">Import Progress: {project.importedRows}/{project.totalRows} rows</p>
+          <p className="text-silver text-xs sm:text-sm mb-0.5 sm:mb-1">Import Progress: {project.importedRows}/{project.totalRows} rows</p>
         )}
-        <p className="text-silver text-sm mb-4">Languages: {project.languages.join(', ')}</p>
-        <div className="mt-4 flex gap-2 flex-wrap">
+        <p className="text-silver text-xs sm:text-sm mb-2 sm:mb-3 md:mb-4">Languages: {project.languages.join(', ')}</p>
+        <div className="mt-2 sm:mt-3 md:mt-4 flex flex-wrap gap-1 sm:gap-2">
           {project.status === 'idle' && (
             <motion.button
               whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleAction('start')}
-              className={`bg-emerald-500 text-white px-4 py-2 rounded-lg transition-all duration-300 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={isLoading}
+              className={`bg-emerald-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${(isLoading || isActionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isLoading || isActionLoading}
               data-tooltip-id={`tooltip-${project._id}`} data-tooltip-content="Start translation"
             >
-              {isLoading ? <ClipLoader color="#FFF" size={16} /> : 'Start'}
+              {(isLoading || isActionLoading) ? <ClipLoader color="#FFF" size={10} /> : 'Start'}
             </motion.button>
           )}
           {project.status === 'running' && (
@@ -112,11 +111,11 @@ function ProjectCard({ project, index }) {
               whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleAction('cancel')}
-              className={`bg-yellow-500 text-white px-4 py-2 rounded-lg transition-all duration-300 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={isLoading}
+              className={`bg-yellow-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${(isLoading || isActionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isLoading || isActionLoading}
               data-tooltip-id={`tooltip-${project._id}`} data-tooltip-content="Cancel translation"
             >
-              {isLoading ? <ClipLoader color="#FFF" size={16} /> : 'Cancel'}
+              {(isLoading || isActionLoading) ? <ClipLoader color="#FFF" size={10} /> : 'Cancel'}
             </motion.button>
           )}
           {(project.status === 'canceled' || project.status === 'error') && (
@@ -124,11 +123,11 @@ function ProjectCard({ project, index }) {
               whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleAction('resume')}
-              className={`bg-emerald-500 text-white px-4 py-2 rounded-lg transition-all duration-300 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={isLoading}
+              className={`bg-emerald-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${(isLoading || isActionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isLoading || isActionLoading}
               data-tooltip-id={`tooltip-${project._id}`} data-tooltip-content="Resume translation"
             >
-              {isLoading ? <ClipLoader color="#FFF" size={16} /> : 'Resume'}
+              {(isLoading || isActionLoading) ? <ClipLoader color="#FFF" size={10} /> : 'Resume'}
             </motion.button>
           )}
           {(project.status === 'completed' || (project.translatedRows > 0 && (project.status === 'canceled' || project.status === 'error'))) && (
@@ -136,8 +135,8 @@ function ProjectCard({ project, index }) {
               whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               onClick={handleDownload}
-              className={`bg-blue-500 text-white px-4 py-2 rounded-lg transition-all duration-300 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={isLoading}
+              className={`bg-blue-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${(isLoading || isActionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isLoading || isActionLoading}
               data-tooltip-id={`tooltip-${project._id}`} data-tooltip-content="Download translated XLSX"
             >
               Download
@@ -147,8 +146,8 @@ function ProjectCard({ project, index }) {
             whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
             whileTap={{ scale: 0.95 }}
             onClick={handleDelete}
-            className={`bg-red-500 text-white px-4 py-2 rounded-lg transition-all duration-300 ${project.status === 'running' || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={project.status === 'running' || isLoading}
+            className={`bg-red-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${project.status === 'running' || isLoading || isActionLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={project.status === 'running' || isLoading || isActionLoading}
             data-tooltip-id={`tooltip-${project._id}`} data-tooltip-content="Delete project"
           >
             Delete
@@ -158,26 +157,26 @@ function ProjectCard({ project, index }) {
               whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(255, 46, 46, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowErrors(!showErrors)}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg transition-all duration-300"
+              className="bg-red-600 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm"
               data-tooltip-id={`tooltip-${project._id}`} data-tooltip-content="View import errors"
             >
               Errors ({project.failedImports.length})
             </motion.button>
           )}
         </div>
-        <div className="mt-4">
-          <div className="bg-gray-700 rounded-full h-2 overflow-hidden mb-2">
+        <div className="mt-2 sm:mt-3 md:mt-4">
+          <div className="bg-gray-700 rounded-full h-1 sm:h-2 overflow-hidden mb-1 sm:mb-2">
             <motion.div
-              className="bg-emerald-500 h-2 rounded-full"
+              className="bg-emerald-500 h-1 sm:h-2 rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${project.progress}%` }}
               transition={{ duration: 0.5 }}
             />
           </div>
           {project.importToSite && (
-            <div className="bg-gray-700 rounded-full h-2 overflow-hidden">
+            <div className="bg-gray-700 rounded-full h-1 sm:h-2 overflow-hidden">
               <motion.div
-                className="bg-blue-500 h-2 rounded-full"
+                className="bg-blue-500 h-1 sm:h-2 rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${project.importProgress}%` }}
                 transition={{ duration: 0.5 }}
@@ -189,22 +188,22 @@ function ProjectCard({ project, index }) {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-4 bg-gray-800 p-4 rounded-lg"
+            className="mt-2 sm:mt-3 md:mt-4 bg-gray-800 p-2 sm:p-3 md:p-4 rounded-lg"
           >
-            <h4 className="text-white text-sm font-semibold mb-2">Failed Imports</h4>
-            <div className="max-h-40 overflow-y-auto">
-              <table className="w-full text-silver text-sm">
+            <h4 className="text-white text-xs sm:text-sm font-semibold mb-1 sm:mb-2">Failed Imports</h4>
+            <div className="max-h-28 sm:max-h-32 md:max-h-40 overflow-y-auto">
+              <table className="w-full text-silver text-xs">
                 <thead>
                   <tr>
-                    <th className="text-left py-1">URL</th>
-                    <th className="text-left py-1">Error</th>
+                    <th className="text-left py-0.5 sm:py-1">URL</th>
+                    <th className="text-left py-0.5 sm:py-1">Error</th>
                   </tr>
                 </thead>
                 <tbody>
                   {project.failedImports.map((fail, idx) => (
                     <tr key={idx}>
-                      <td className="py-1 truncate max-w-xs">{fail.url}</td>
-                      <td className="py-1 truncate max-w-xs">{fail.error}</td>
+                      <td className="py-0.5 sm:py-1 truncate max-w-[100px] sm:max-w-[120px] md:max-w-xs">{fail.url}</td>
+                      <td className="py-0.5 sm:py-1 truncate max-w-[100px] sm:max-w-[120px] md:max-w-xs">{fail.error}</td>
                     </tr>
                   ))}
                 </tbody>
