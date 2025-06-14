@@ -1,16 +1,32 @@
 import { useState, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { ClipLoader } from 'react-spinners';
+import { Tooltip } from 'react-tooltip';
 import axios from 'axios';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3200';
 
-function ProjectModal({ onClose, onAdd }) {
+function ProjectModal({ type, onClose, onAdd }) {
+  const [tab, setTab] = useState('translation');
   const [name, setName] = useState('');
   const [file, setFile] = useState(null);
-  const [columns, setColumns] = useState({ imdbid: '', title: '', description: '' });
+  const [columns, setColumns] = useState(
+    type === 'csv' ? 
+      { id: '', Title: '', Content: '', Permalink: '', Slug: '' } : 
+      { imdbid: '', title: '', description: '' }
+  );
   const [languages, setLanguages] = useState([]);
   const [newLanguage, setNewLanguage] = useState('');
-  const [error, setError] = useState('');
+  const [importToSite, setImportToSite] = useState(false);
+  const [domain, setDomain] = useState({
+    url: '',
+    login: '',
+    apiPassword: '',
+    isWordPress: false
+  });
+  const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const fileInputRef = useRef(null);
   const modalRef = useRef();
 
   const handleClickOutside = (e) => {
@@ -20,18 +36,21 @@ function ProjectModal({ onClose, onAdd }) {
   };
 
   const handleFileChange = (e) => {
+    console.log('File input changed:', e.target.files);
     const selectedFile = e.target.files[0];
     if (selectedFile) {
       if (!selectedFile.name.endsWith('.xlsx')) {
-        setError('Please upload an XLSX file');
+        setErrors({ ...errors, file: 'Please upload an XLSX file' });
         setFile(null);
-      } else if (selectedFile.size > 50 * 1024 * 1024) { // 50MB limit
-        setError('File size exceeds 50MB limit');
+      } else if (selectedFile.size > 50 * 1024 * 1024) {
+        setErrors({ ...errors, file: 'File size exceeds 50MB limit' });
         setFile(null);
       } else {
-        setError('');
+        setErrors({ ...errors, file: '' });
         setFile(selectedFile);
       }
+    } else {
+      setFile(null);
     }
   };
 
@@ -40,32 +59,81 @@ function ProjectModal({ onClose, onAdd }) {
     if (trimmedLang && !languages.includes(trimmedLang)) {
       setLanguages([...languages, trimmedLang]);
       setNewLanguage('');
+      setErrors({ ...errors, languages: '' });
     }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!name) newErrors.name = 'Project name is required';
+    if (!file) newErrors.file = 'File is required';
+    const requiredFields = type === 'csv' ? 
+      ['id', 'Title', 'Content', 'Permalink', 'Slug'] : 
+      ['imdbid', 'title', 'description'];
+    requiredFields.forEach(field => {
+      if (!columns[field]) newErrors[field] = `${field} column is required`;
+    });
+    if (languages.length === 0) newErrors.languages = 'At least one language is required';
+    if (importToSite) {
+      if (!domain.url) newErrors.domainUrl = 'Website URL is required';
+      if (!domain.login) newErrors.domainLogin = 'Login is required';
+      if (!domain.apiPassword) newErrors.domainPassword = 'API password is required';
+      if (!domain.isWordPress) newErrors.isWordPress = 'WordPress confirmation is required';
+    }
+    setErrors(newErrors);
+    console.log('Validation errors:', newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const resetForm = () => {
     setName('');
     setFile(null);
-    setColumns({ imdbid: '', title: '', description: '' });
+    setColumns(type === 'csv' ? 
+      { id: '', Title: '', Content: '', Permalink: '', Slug: '' } : 
+      { imdbid: '', title: '', description: '' }
+    );
     setLanguages([]);
     setNewLanguage('');
-    setError('');
+    setImportToSite(false);
+    setDomain({ url: '', login: '', apiPassword: '', isWordPress: false });
+    setErrors({});
+    setTab('translation');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file || !name || !columns.imdbid || !columns.title || !columns.description || languages.length === 0) {
-      setError('All fields are required, including at least one language');
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsLoading(true);
-    setError('');
     const formData = new FormData();
     formData.append('name', name);
+    formData.append('type', type);
     formData.append('file', file);
     formData.append('columns', JSON.stringify(columns));
     formData.append('languages', JSON.stringify(languages));
+    formData.append('importToSite', importToSite);
+
+    if (importToSite) {
+      let normalizedUrl = domain.url.trim();
+      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+        normalizedUrl = `https://${normalizedUrl}`;
+      }
+      if (!normalizedUrl.endsWith('/wp-json/wp/v2')) {
+        normalizedUrl = normalizedUrl.replace(/\/$/, '') + '/wp-json/wp/v2';
+      }
+      const domainData = {
+        url: normalizedUrl,
+        login: domain.login,
+        apiPassword: domain.apiPassword,
+        isWordPress: domain.isWordPress
+      };
+      console.log('Domain data to send:', domainData);
+      formData.append('domain', JSON.stringify(domainData));
+    } else {
+      console.log('No import, skipping domain data');
+    }
+
+    console.log('Form data:', [...formData.entries()]);
 
     try {
       const response = await axios.post(`${BACKEND_URL}/api/projects`, formData, {
@@ -80,102 +148,361 @@ function ProjectModal({ onClose, onAdd }) {
       onClose();
     } catch (err) {
       const errorMessage = err.response?.data?.error || err.message || 'Failed to create project';
-      if (err.response?.status === 413) {
-        setError('File too large. Please upload a file smaller than 50MB.');
-      } else {
-        setError(errorMessage);
-      }
       console.error('Project creation error:', errorMessage, err);
+      setErrors({ ...errors, general: errorMessage });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
-      onClick={handleClickOutside}
-    >
-      <div ref={modalRef} className="bg-white p-8 rounded-lg shadow-lg w-full max-w-lg">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-6">Add Project</h2>
-        {error && <p className="text-red-500 mb-4">{error}</p>}
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            placeholder="Project Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            disabled={isLoading}
-          />
-          <input
-            type="file"
-            accept=".xlsx"
-            onChange={handleFileChange}
-            className="w-full p-3 mb-4 border border-gray-300 rounded-md"
-            disabled={isLoading}
-          />
-          <input
-            type="text"
-            placeholder="IMDb ID Column"
-            value={columns.imdbid}
-            onChange={(e) => setColumns({ ...columns, imdbid: e.target.value })}
-            className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            disabled={isLoading}
-          />
-          <input
-            type="text"
-            placeholder="Title Column"
-            value={columns.title}
-            onChange={(e) => setColumns({ ...columns, title: e.target.value })}
-            className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            disabled={isLoading}
-          />
-          <input
-            type="text"
-            placeholder="Description Column"
-            value={columns.description}
-            onChange={(e) => setColumns({ ...columns, description: e.target.value })}
-            className="w-full p-3 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            disabled={isLoading}
-          />
-          <div className="mb-4">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Enter language codes (e.g., es, pt, fr)"
-                value={newLanguage}
-                onChange={(e) => setNewLanguage(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                disabled={isLoading}
-              />
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50"
+        onClick={handleClickOutside}
+      >
+        <motion.div
+          ref={modalRef}
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+          className="bg-dark-blue p-8 rounded-xl border border-silver shadow-neon w-full max-w-lg"
+        >
+          <h2 className="text-2xl font-bold text-emerald mb-6 text-center">
+            New {type === 'csv' ? 'CSV' : 'Standard'} Project
+          </h2>
+          {errors.general && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-red-400 mb-4 text-center text-sm"
+            >
+              {errors.general}
+            </motion.p>
+          )}
+          <div className="flex mb-4">
+            <button
+              className={`flex-1 py-2 px-4 text-white ${tab === 'translation' ? 'bg-emerald-500' : 'bg-gray-700'} rounded-l-lg transition-all duration-300`}
+              onClick={() => setTab('translation')}
+            >
+              Translation
+            </button>
+            {type === 'csv' && (
               <button
-                type="button"
-                onClick={handleAddLanguage}
-                className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors duration-200"
-                disabled={isLoading}
+                className={`flex-1 py-2 px-4 text-white ${tab === 'import' ? 'bg-emerald-500' : 'bg-gray-700'} rounded-r-lg transition-all duration-300 ${!importToSite ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={() => importToSite && setTab('import')}
+                disabled={!importToSite}
               >
-                +
+                Import
               </button>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {languages.map(lang => (
-                <span key={lang} className="inline-block bg-green-100 text-green-800 rounded px-2 py-1">
-                  {lang}
-                </span>
-              ))}
-            </div>
+            )}
           </div>
-          <button
-            type="submit"
-            className="w-full bg-green-500 text-white p-3 rounded-md hover:bg-green-600 transition-colors duration-200 disabled:bg-green-300 disabled:cursor-not-allowed"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Creating...' : 'Add Project'}
-          </button>
-        </form>
-      </div>
-    </div>
+          <form onSubmit={handleSubmit}>
+            {tab === 'translation' && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                <motion.input
+                  whileFocus={{ borderColor: '#2A9D8F' }}
+                  type="text"
+                  placeholder="Project Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={`w-full p-3 mb-4 bg-gray-800 border ${errors.name ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                  disabled={isLoading}
+                  data-tooltip-id="tooltip-name"
+                  data-tooltip-content="Enter project name"
+                  data-tooltip-delay-show={1000}
+                />
+                {errors.name && <p className="text-red-400 text-xs mb-2">{errors.name}</p>}
+                <div className="mb-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={isLoading}
+                  />
+                  <motion.button
+                    whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
+                    whileTap={{ scale: 0.95 }}
+                    type="button"
+                    onClick={() => fileInputRef.current.click()}
+                    className={`bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-all duration-300 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={isLoading}
+                    data-tooltip-id="tooltip-file"
+                    data-tooltip-content="Upload XLSX file"
+                    data-tooltip-delay-show={1000}
+                  >
+                    Choose File
+                  </motion.button>
+                  <span className="ml-2 text-silver text-sm">
+                    {file ? file.name : 'No file selected'}
+                  </span>
+                  {errors.file && <p className="text-red-400 text-xs mt-1">{errors.file}</p>}
+                </div>
+                {type === 'csv' ? (
+                  <>
+                    <motion.input
+                      whileFocus={{ borderColor: '#2A9D8F' }}
+                      type="text"
+                      placeholder="ID Column"
+                      value={columns.id}
+                      onChange={(e) => setColumns({ ...columns, id: e.target.value })}
+                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.id ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      disabled={isLoading}
+                      data-tooltip-id="tooltip-id"
+                      data-tooltip-content="Column name for ID"
+                      data-tooltip-delay-show={1000}
+                    />
+                    {errors.id && <p className="text-red-400 text-xs mb-2">{errors.id}</p>}
+                    <motion.input
+                      whileFocus={{ borderColor: '#2A9D8F' }}
+                      type="text"
+                      placeholder="Title Column"
+                      value={columns.Title}
+                      onChange={(e) => setColumns({ ...columns, Title: e.target.value })}
+                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.Title ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      disabled={isLoading}
+                      data-tooltip-id="tooltip-title"
+                      data-tooltip-content="Column name for Title"
+                      data-tooltip-delay-show={1000}
+                    />
+                    {errors.Title && <p className="text-red-400 text-xs mb-2">{errors.Title}</p>}
+                    <motion.input
+                      whileFocus={{ borderColor: '#2A9D8F' }}
+                      type="text"
+                      placeholder="Content Column"
+                      value={columns.Content}
+                      onChange={(e) => setColumns({ ...columns, Content: e.target.value })}
+                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.Content ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      disabled={isLoading}
+                      data-tooltip-id="tooltip-content"
+                      data-tooltip-content="Column name for Content"
+                      data-tooltip-delay-show={1000}
+                    />
+                    {errors.Content && <p className="text-red-400 text-xs mb-2">{errors.Content}</p>}
+                    <motion.input
+                      whileFocus={{ borderColor: '#2A9D8F' }}
+                      type="text"
+                      placeholder="Permalink Column"
+                      value={columns.Permalink}
+                      onChange={(e) => setColumns({ ...columns, Permalink: e.target.value })}
+                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.Permalink ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      disabled={isLoading}
+                      data-tooltip-id="tooltip-permalink"
+                      data-tooltip-content="Column name for Permalink"
+                      data-tooltip-delay-show={1000}
+                    />
+                    {errors.Permalink && <p className="text-red-400 text-xs mb-2">{errors.Permalink}</p>}
+                    <motion.input
+                      whileFocus={{ borderColor: '#2A9D8F' }}
+                      type="text"
+                      placeholder="Slug Column"
+                      value={columns.Slug}
+                      onChange={(e) => setColumns({ ...columns, Slug: e.target.value })}
+                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.Slug ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      disabled={isLoading}
+                      data-tooltip-id="tooltip-slug"
+                      data-tooltip-content="Column name for Slug"
+                      data-tooltip-delay-show={1000}
+                    />
+                    {errors.Slug && <p className="text-red-400 text-xs mb-2">{errors.Slug}</p>}
+                  </>
+                ) : (
+                  <>
+                    <motion.input
+                      whileFocus={{ borderColor: '#2A9D8F' }}
+                      type="text"
+                      placeholder="IMDb ID Column"
+                      value={columns.imdbid}
+                      onChange={(e) => setColumns({ ...columns, imdbid: e.target.value })}
+                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.imdbid ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      disabled={isLoading}
+                      data-tooltip-id="tooltip-imdbid"
+                      data-tooltip-content="Column name for IMDb ID"
+                      data-tooltip-delay-show={1000}
+                    />
+                    {errors.imdbid && <p className="text-red-400 text-xs mb-2">{errors.imdbid}</p>}
+                    <motion.input
+                      whileFocus={{ borderColor: '#2A9D8F' }}
+                      type="text"
+                      placeholder="Title Column"
+                      value={columns.title}
+                      onChange={(e) => setColumns({ ...columns, title: e.target.value })}
+                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.title ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      disabled={isLoading}
+                      data-tooltip-id="tooltip-title-std"
+                      data-tooltip-content="Column name for Title"
+                      data-tooltip-delay-show={1000}
+                    />
+                    {errors.title && <p className="text-red-400 text-xs mb-2">{errors.title}</p>}
+                    <motion.input
+                      whileFocus={{ borderColor: '#2A9D8F' }}
+                      type="text"
+                      placeholder="Description Column"
+                      value={columns.description}
+                      onChange={(e) => setColumns({ ...columns, description: e.target.value })}
+                      className={`w-full p-3 mb-4 bg-gray-800 border ${errors.description ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      disabled={isLoading}
+                      data-tooltip-id="tooltip-description"
+                      data-tooltip-content="Column name for Description"
+                      data-tooltip-delay-show={1000}
+                    />
+                    {errors.description && <p className="text-red-400 text-xs mb-2">{errors.description}</p>}
+                  </>
+                )}
+                <div className="mb-4">
+                  <div className="flex gap-2">
+                    <motion.input
+                      whileFocus={{ borderColor: '#2A9D8F' }}
+                      type="text"
+                      placeholder="Language codes (e.g., ru, es)"
+                      value={newLanguage}
+                      onChange={(e) => setNewLanguage(e.target.value)}
+                      className={`w-full p-3 border ${errors.languages ? 'border-red-400' : 'border-silver'} bg-gray-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                      disabled={isLoading}
+                      data-tooltip-id="tooltip-language"
+                      data-tooltip-content="Enter a language code"
+                      data-tooltip-delay-show={1000}
+                    />
+                    <motion.button
+                      whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
+                      whileTap={{ scale: 0.95 }}
+                      type="button"
+                      onClick={handleAddLanguage}
+                      className="bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-all duration-300"
+                      disabled={isLoading}
+                      data-tooltip-id="tooltip-add-lang"
+                      data-tooltip-content="Add language"
+                      data-tooltip-delay-show={1000}
+                    >
+                      +
+                    </motion.button>
+                  </div>
+                  {errors.languages && <p className="text-red-400 text-xs mt-1">{errors.languages}</p>}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {languages.map(lang => (
+                      <motion.span
+                        key={lang}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="inline-block bg-emerald-500 text-white rounded-full px-3 py-1 text-sm"
+                      >
+                        {lang}
+                      </motion.span>
+                    ))}
+                  </div>
+                </div>
+                {type === 'csv' && (
+                  <div className="mb-4 flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={importToSite}
+                      onChange={(e) => setImportToSite(e.target.checked)}
+                      className="mr-2 h-4 w-4 text-emerald-500 border-silver rounded focus:ring-emerald-500"
+                      disabled={isLoading}
+                      id="importToSite"
+                    />
+                    <label htmlFor="importToSite" className="text-silver text-sm">
+                      Import translations to website
+                    </label>
+                  </div>
+                )}
+              </motion.div>
+            )}
+            {tab === 'import' && type === 'csv' && importToSite && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+                <motion.input
+                  whileFocus={{ borderColor: '#2A9D8F' }}
+                  type="text"
+                  placeholder="Website URL (e.g., https://example.com)"
+                  value={domain.url}
+                  onChange={(e) => setDomain({ ...domain, url: e.target.value })}
+                  className={`w-full p-3 mb-4 bg-gray-800 border ${errors.domainUrl ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                  disabled={isLoading}
+                  data-tooltip-id="tooltip-domain-url"
+                  data-tooltip-content="Enter website URL (API endpoint will be added automatically)"
+                  data-tooltip-delay-show={1000}
+                />
+                {errors.domainUrl && <p className="text-red-400 text-xs mb-2">{errors.domainUrl}</p>}
+                <motion.input
+                  whileFocus={{ borderColor: '#2A9D8F' }}
+                  type="text"
+                  placeholder="Login"
+                  value={domain.login}
+                  onChange={(e) => setDomain({ ...domain, login: e.target.value })}
+                  className={`w-full p-3 mb-4 bg-gray-800 border ${errors.domainLogin ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                  disabled={isLoading}
+                  data-tooltip-id="tooltip-domain-login"
+                  data-tooltip-content="Enter WordPress login"
+                  data-tooltip-delay-show={1000}
+                />
+                {errors.domainLogin && <p className="text-red-400 text-xs mb-2">{errors.domainLogin}</p>}
+                <motion.input
+                  whileFocus={{ borderColor: '#2A9D8F' }}
+                  type="password"
+                  placeholder="API Password"
+                  value={domain.apiPassword}
+                  onChange={(e) => setDomain({ ...domain, apiPassword: e.target.value })}
+                  className={`w-full p-3 mb-4 bg-gray-800 border ${errors.domainPassword ? 'border-red-400' : 'border-silver'} rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
+                  disabled={isLoading}
+                  data-tooltip-id="tooltip-domain-password"
+                  data-tooltip-content="Enter WordPress API password"
+                  data-tooltip-delay-show={1000}
+                />
+                {errors.domainPassword && <p className="text-red-400 text-xs mb-2">{errors.domainPassword}</p>}
+                <div className="mb-4 flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={domain.isWordPress}
+                    onChange={(e) => setDomain({ ...domain, isWordPress: e.target.checked })}
+                    className={`mr-2 h-4 w-4 text-emerald-500 border ${errors.isWordPress ? 'border-red-400' : 'border-silver'} rounded focus:ring-emerald-500`}
+                    disabled={isLoading}
+                    id="isWordPress"
+                  />
+                  <label htmlFor="isWordPress" className="text-silver text-sm">
+                    This is a WordPress site (required)
+                  </label>
+                </div>
+                {errors.isWordPress && <p className="text-red-400 text-xs mb-2">{errors.isWordPress}</p>}
+              </motion.div>
+            )}
+            <motion.button
+              whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
+              whileTap={{ scale: 0.95 }}
+              type="submit"
+              className={`w-full bg-emerald-500 text-white p-3 rounded-lg hover:bg-emerald-600 transition-all duration-300 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isLoading}
+              data-tooltip-id="tooltip-submit"
+              data-tooltip-content="Create project"
+              data-tooltip-delay-show={1000}
+            >
+              {isLoading ? <ClipLoader color="#FFF" size={20} /> : 'Create Project'}
+            </motion.button>
+          </form>
+        </motion.div>
+      </motion.div>
+      <Tooltip id="tooltip-name" className="tooltip-custom" />
+      <Tooltip id="tooltip-file" className="tooltip-custom" />
+      <Tooltip id="tooltip-id" className="tooltip-custom" />
+      <Tooltip id="tooltip-title" className="tooltip-custom" />
+      <Tooltip id="tooltip-content" className="tooltip-custom" />
+      <Tooltip id="tooltip-permalink" className="tooltip-custom" />
+      <Tooltip id="tooltip-slug" className="tooltip-custom" />
+      <Tooltip id="tooltip-imdbid" className="tooltip-custom" />
+      <Tooltip id="tooltip-title-std" className="tooltip-custom" />
+      <Tooltip id="tooltip-description" className="tooltip-custom" />
+      <Tooltip id="tooltip-language" className="tooltip-custom" />
+      <Tooltip id="tooltip-add-lang" className="tooltip-custom" />
+      <Tooltip id="tooltip-submit" className="tooltip-custom" />
+      <Tooltip id="tooltip-domain-url" className="tooltip-custom" />
+      <Tooltip id="tooltip-domain-login" className="tooltip-custom" />
+      <Tooltip id="tooltip-domain-password" className="tooltip-custom" />
+    </>
   );
 }
 

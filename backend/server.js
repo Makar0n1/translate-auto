@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const WebSocket = require('ws');
 const projectRoutes = require('./routes/projectRoutes');
+const domainRoutes = require('./routes/domainRoutes');
 const authRoutes = require('./routes/authRoutes');
 const { initWebSocket } = require('./utils/websocket');
 
@@ -33,6 +34,7 @@ const wss = new WebSocket.Server({ server });
 initWebSocket(wss);
 
 app.use('/api/projects', projectRoutes);
+app.use('/api/domains', domainRoutes);
 app.use('/api/auth', authRoutes);
 
 // Обработка ошибок

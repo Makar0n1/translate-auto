@@ -1,21 +1,22 @@
 const mongoose = require('mongoose');
 const XLSX = require('xlsx');
 const multer = require('multer');
-const fs = require('fs').promises; // Для удаления файлов
-const path = require('path'); // Для работы с путями
+const fs = require('fs').promises;
+const path = require('path');
 const { translateText } = require('../utils/openai');
+const { getPostByUrl, updatePost } = require('../utils/wordpress');
 const Project = require('../models/Project');
+const Domain = require('../models/Domain');
 const { broadcast } = require('../utils/websocket');
 const { setTranslationState, getTranslationState } = require('../utils/translationState');
 
 const upload = multer({ dest: 'uploads/' });
-
-// Кэш для моделей коллекций
 const collectionModels = new Map();
 
 exports.getProjects = async (req, res) => {
   try {
-    const projects = await Project.find().lean();
+    const projects = await Project.find().populate('domainId').lean();
+    console.log(`Fetched ${projects.length} projects`);
     res.json(projects);
   } catch (error) {
     console.error('Error fetching projects:', error.message);
@@ -24,21 +25,52 @@ exports.getProjects = async (req, res) => {
 };
 
 exports.createProject = async (req, res) => {
-  const { name } = req.body;
-  let { columns, languages } = req.body;
+  const { name, type, importToSite } = req.body;
+  let { columns, languages, domain } = req.body;
   const file = req.file;
 
   try {
-    if (typeof columns === 'string') {
-      columns = JSON.parse(columns);
-    }
-    if (typeof languages === 'string') {
-      languages = JSON.parse(languages);
+    console.log('Create project request:', { name, type, importToSite, columns, languages, domain, file: file?.path });
+
+    if (typeof columns === 'string') columns = JSON.parse(columns);
+    if (typeof languages === 'string') languages = JSON.parse(languages);
+    if (typeof domain === 'string' && domain) domain = JSON.parse(domain);
+
+    if (!name || !file || !columns || !languages || languages.length === 0) {
+      if (file) await fs.unlink(file.path).catch(err => console.warn(`Failed to delete file ${file.path}:`, err.message));
+      return res.status(400).json({ error: 'Name, file, columns, and at least one language are required' });
     }
 
-    if (!name || !file || !columns || !languages || !columns.imdbid || !columns.title || !columns.description || !languages.length) {
-      console.error('Invalid input:', { name, file, columns, languages });
-      return res.status(400).json({ error: 'All fields are required, including at least one language' });
+    let requiredFields = type === 'csv' ? ['id', 'Title', 'Content', 'Permalink', 'Slug'] : ['imdbid', 'title', 'description'];
+    if (!requiredFields.every(field => columns[field])) {
+      if (file) await fs.unlink(file.path).catch(err => console.warn(`Failed to delete file ${file.path}:`, err.message));
+      return res.status(400).json({ error: `All required columns (${requiredFields.join(', ')}) must be provided` });
+    }
+
+    let domainId = null;
+    if (importToSite === 'true' || importToSite === true) {
+      console.log('Validating WordPress data for import:', domain);
+      if (!domain || !domain.url || !domain.login || !domain.apiPassword || !domain.isWordPress) {
+        if (file) await fs.unlink(file.path).catch(err => console.warn(`Failed to delete file ${file.path}:`, err.message));
+        return res.status(400).json({ error: 'Domain URL, login, API password, and WordPress confirmation are required for import' });
+      }
+      let normalizedUrl = domain.url.trim();
+      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+        normalizedUrl = `https://${normalizedUrl}`;
+      }
+      if (!normalizedUrl.endsWith('/wp-json/wp/v2')) {
+        normalizedUrl = normalizedUrl.replace(/\/$/, '') + '/wp-json/wp/v2';
+      }
+      const newDomain = new Domain({
+        url: normalizedUrl,
+        login: domain.login,
+        apiPassword: domain.apiPassword,
+        isWordPress: domain.isWordPress
+      });
+      await newDomain.save();
+      domainId = newDomain._id;
+    } else {
+      console.log('No import required, skipping WordPress validation');
     }
 
     const workbook = XLSX.readFile(file.path);
@@ -47,20 +79,25 @@ exports.createProject = async (req, res) => {
     
     const project = new Project({
       name,
+      type: type || 'standard',
       filePath: file.path,
       columns,
       languages,
       totalRows: data.length,
       translations: [],
-      translationCollections: []
+      translationCollections: [],
+      importToSite: importToSite === 'true' || importToSite === true,
+      domainId,
+      failedImports: []
     });
     
     await project.save();
-    console.log('Project created:', project._id, 'translations:', project.translations, 'translationCollections:', project.translationCollections);
-    broadcast({ type: 'PROJECT_CREATED', project: project.toObject() });
-    res.status(201).json(project.toObject());
+    console.log('Project created:', project._id, 'type:', project.type, 'importToSite:', project.importToSite);
+    broadcast({ type: 'PROJECT_CREATED', project: await Project.findById(project._id).populate('domainId').lean() });
+    res.status(201).json(project);
   } catch (error) {
     console.error('Error creating project:', error.message);
+    if (file) await fs.unlink(file.path).catch(err => console.warn(`Failed to delete file ${file.path}:`, err.message));
     res.status(500).json({ error: 'Failed to create project' });
   }
 };
@@ -69,9 +106,10 @@ exports.startTranslation = async (req, res) => {
   const { id } = req.params;
   let project;
   try {
-    project = await Project.findById(id).lean();
+    project = await Project.findById(id).populate('domainId').lean();
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
+    console.log(`Starting translation for project ${id}`);
     await Project.updateOne({ _id: id }, { status: 'running' });
     if (!Array.isArray(project.translations)) {
       await Project.updateOne({ _id: id }, { translations: [] });
@@ -81,36 +119,51 @@ exports.startTranslation = async (req, res) => {
       await Project.updateOne({ _id: id }, { translationCollections: [] });
       console.log(`Initialized translationCollections for project ${id}`);
     }
-    project = await Project.findById(id).lean();
+    project = await Project.findById(id).populate('domainId').lean();
     setTranslationState(id, true);
+    console.log(`Broadcasting PROJECT_UPDATED for project ${id}, status: running, project data:`, project);
     broadcast({ type: 'PROJECT_UPDATED', project });
     
+    res.json(project); // Ответ клиенту сразу после инициализации
+    
+    // Асинхронная обработка перевода
     const workbook = XLSX.readFile(project.filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
     
     let currentCollection = null;
     let collectionIndex = project.translationCollections.length + 1;
-    let maxRowsPerCollection = 5000; // Для теста
+    let maxRowsPerCollection = 5000;
     let rowCountInCurrentCollection = 0;
 
-    // Определяем текущую коллекцию
+    const isCSV = project.type === 'csv';
+    const TranslationSchema = new mongoose.Schema({
+      translations: [{
+        id: String,
+        imdbid: String,
+        Permalink: String,
+        Slug: String,
+        original: {
+          title: String,
+          Title: String,
+          description: String,
+          Content: String
+        },
+        translated: [{
+          language: String,
+          title: String,
+          Title: String,
+          description: String,
+          Content: String
+        }]
+      }]
+    });
+
     if (project.translationCollections.length > 0) {
       const lastCollectionName = project.translationCollections[project.translationCollections.length - 1];
       console.log(`Using existing collection: ${lastCollectionName}`);
       let LastCollection = collectionModels.get(lastCollectionName);
       if (!LastCollection) {
-        const TranslationSchema = new mongoose.Schema({
-          translations: [{
-            imdbid: String,
-            original: { title: String, description: String },
-            translated: [{
-              language: String,
-              title: String,
-              description: String
-            }]
-          }]
-        });
         LastCollection = mongoose.model(lastCollectionName, TranslationSchema, lastCollectionName);
         collectionModels.set(lastCollectionName, LastCollection);
       }
@@ -132,23 +185,11 @@ exports.startTranslation = async (req, res) => {
         break;
       }
       
-      // Проверяем, нужно ли создать новую коллекцию
       if (rowCountInCurrentCollection >= maxRowsPerCollection) {
         const newCollectionName = `project_${id}_${collectionIndex}`;
         console.log(`Creating new collection: ${newCollectionName}`);
         let NewCollection = collectionModels.get(newCollectionName);
         if (!NewCollection) {
-          const TranslationSchema = new mongoose.Schema({
-            translations: [{
-              imdbid: String,
-              original: { title: String, description: String },
-              translated: [{
-                language: String,
-                title: String,
-                description: String
-              }]
-            }]
-          });
           NewCollection = mongoose.model(newCollectionName, TranslationSchema, newCollectionName);
           collectionModels.set(newCollectionName, NewCollection);
         }
@@ -160,7 +201,7 @@ exports.startTranslation = async (req, res) => {
           { $push: { translationCollections: newCollectionName } }
         );
         console.log(`Updated translationCollections for project ${id}`);
-        project = await Project.findById(id).lean();
+        project = await Project.findById(id).populate('domainId').lean();
         console.log(`Current translationCollections:`, project.translationCollections);
         rowCountInCurrentCollection = 0;
         collectionIndex++;
@@ -171,9 +212,44 @@ exports.startTranslation = async (req, res) => {
       
       for (const lang of project.languages) {
         try {
-          const title = await translateText(row[project.columns.title], lang, 'title');
-          const description = await translateText(row[project.columns.description], lang, 'description');
-          translations.push({ language: lang, title, description });
+          if (isCSV) {
+            const title = await translateText(row[project.columns.Title], lang, 'title', true);
+            const content = row[project.columns.Content] === 'N/A' ?
+              await translateText(row[project.columns.Title], lang, 'generateDescription', true) :
+              await translateText(row[project.columns.Content], lang, 'description', true);
+            translations.push({ 
+              language: lang, 
+              Title: title, 
+              Content: content 
+            });
+            
+            if (project.importToSite && lang === project.languages[0]) {
+              try {
+                const post = await getPostByUrl(row[project.columns.Permalink], project.domainId);
+                await updatePost(post.id, { title, content }, project.domainId);
+                await Project.updateOne(
+                  { _id: id },
+                  { $inc: { importedRows: 1 }, $set: { importProgress: ((project.importedRows + 1) / project.totalRows) * 100 } }
+                );
+                console.log(`Broadcasting PROJECT_UPDATED for project ${id}, import progress: ${project.importedRows + 1}/${project.totalRows}`);
+                broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).populate('domainId').lean() });
+              } catch (wpError) {
+                console.warn(`Failed to import to WordPress for ${row[project.columns.Permalink]}:`, wpError.message);
+                await Project.updateOne(
+                  { _id: id },
+                  { $push: { failedImports: { url: row[project.columns.Permalink], error: wpError.message } } }
+                );
+              }
+            }
+          } else {
+            const title = await translateText(row[project.columns.title], lang, 'title');
+            const description = await translateText(row[project.columns.description], lang, 'description');
+            translations.push({ 
+              language: lang, 
+              title, 
+              description 
+            });
+          }
         } catch (error) {
           if (error.message === 'OpenAI quota exceeded') {
             await Project.updateOne(
@@ -181,8 +257,9 @@ exports.startTranslation = async (req, res) => {
               { status: 'error', errorMessage: 'OpenAI quota exceeded. Please top up your account and resume.' }
             );
             setTranslationState(id, false);
-            broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).lean() });
-            return res.status(429).json({ error: 'Translation failed' });
+            console.log(`Broadcasting PROJECT_UPDATED for project ${id}, status: error`);
+            broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).populate('domainId').lean() });
+            return;
           }
           throw error;
         }
@@ -195,10 +272,15 @@ exports.startTranslation = async (req, res) => {
       
       console.log(`Adding translation for row ${i + 1} to collection`);
       currentCollection.translations.push({
+        id: row[project.columns.id],
         imdbid: row[project.columns.imdbid],
+        Permalink: row[project.columns.Permalink],
+        Slug: row[project.columns.Slug],
         original: {
           title: row[project.columns.title],
-          description: row[project.columns.description]
+          Title: row[project.columns.Title],
+          description: row[project.columns.description],
+          Content: row[project.columns.Content]
         },
         translated: translations
       });
@@ -215,9 +297,10 @@ exports.startTranslation = async (req, res) => {
       
       await Project.updateOne(
         { _id: id },
-        { translatedRows: i + 1, progress: ((i + 1) / data.length) * 100 }
+        { translatedRows: i + 1, progress: ((i + 1) / project.totalRows) * 100 }
       );
-      project = await Project.findById(id).lean();
+      project = await Project.findById(id).populate('domainId').lean();
+      console.log(`Broadcasting PROJECT_UPDATED for project ${id}, progress: ${project.progress}%`);
       broadcast({ type: 'PROJECT_UPDATED', project });
       rowCountInCurrentCollection++;
     }
@@ -226,10 +309,9 @@ exports.startTranslation = async (req, res) => {
       await Project.updateOne({ _id: id }, { status: 'completed' });
       setTranslationState(id, false);
       console.log(`Translation completed for project ${id}`);
-      broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).lean() });
+      console.log(`Broadcasting PROJECT_UPDATED for project ${id}, status: completed`);
+      broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).populate('domainId').lean() });
     }
-    
-    res.json(await Project.findById(id).lean());
   } catch (error) {
     console.error('Error in translation:', error.message);
     if (project) {
@@ -238,23 +320,25 @@ exports.startTranslation = async (req, res) => {
         { status: 'error', errorMessage: error.message }
       );
       setTranslationState(id, false);
-      broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).lean() });
+      console.log(`Broadcasting PROJECT_UPDATED for project ${id}, status: error`);
+      broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).populate('domainId').lean() });
     }
-    res.status(500).json({ error: 'Translation failed' });
   }
 };
 
 exports.cancelTranslation = async (req, res) => {
   const { id } = req.params;
   try {
-    const project = await Project.findById(id).lean();
+    const project = await Project.findById(id).populate('domainId').lean();
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
     console.log(`Canceling translation for project ${id}`);
     await Project.updateOne({ _id: id }, { status: 'canceled' });
     setTranslationState(id, false);
-    broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).lean() });
-    res.json(await Project.findById(id).lean());
+    const updatedProject = await Project.findById(id).populate('domainId').lean();
+    console.log(`Broadcasting PROJECT_UPDATED for project ${id}, status: canceled, project data:`, updatedProject);
+    broadcast({ type: 'PROJECT_UPDATED', project: updatedProject });
+    res.json(updatedProject);
   } catch (error) {
     console.error('Error canceling translation:', error.message);
     res.status(500).json({ error: 'Failed to cancel' });
@@ -264,12 +348,13 @@ exports.cancelTranslation = async (req, res) => {
 exports.resumeTranslation = async (req, res) => {
   const { id } = req.params;
   try {
-    const project = await Project.findById(id).lean();
+    const project = await Project.findById(id).populate('domainId').lean();
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
     await Project.updateOne({ _id: id }, { status: 'running', errorMessage: '' });
     setTranslationState(id, true);
-    broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).lean() });
+    console.log(`Broadcasting PROJECT_UPDATED for project ${id}, status: running`);
+    broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).populate('domainId').lean() });
     
     exports.startTranslation(req, res);
   } catch (error) {
@@ -281,12 +366,11 @@ exports.resumeTranslation = async (req, res) => {
 exports.deleteProject = async (req, res) => {
   const { id } = req.params;
   try {
-    const project = await Project.findById(id).lean();
+    const project = await Project.findById(id).populate('domainId').lean();
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
     console.log(`Deleting project ${id}, filePath: ${project.filePath}, translationCollections:`, project.translationCollections);
     
-    // Удаляем связанные коллекции
     const translationCollections = Array.isArray(project.translationCollections) ? project.translationCollections : [];
     for (const collectionName of translationCollections) {
       try {
@@ -297,18 +381,25 @@ exports.deleteProject = async (req, res) => {
       }
     }
     
-    // Удаляем файл из uploads
     if (project.filePath) {
       try {
         const filePath = path.resolve(project.filePath);
         await fs.unlink(filePath);
         console.log(`Deleted file ${filePath}`);
       } catch (err) {
-        console.warn(`Could not delete file ${project.filePath}: ${err.message}`);
+        console.warn(`Could not delete file ${project.filePath}:`, err.message);
       }
     }
     
-    // Удаляем документ проекта
+    if (project.domainId) {
+      try {
+        await Domain.deleteOne({ _id: project.domainId });
+        console.log(`Deleted domain ${project.domainId}`);
+      } catch (err) {
+        console.warn(`Could not delete domain ${project.domainId}:`, err.message);
+      }
+    }
+    
     await Project.deleteOne({ _id: id });
     console.log(`Deleted project document ${id}`);
     
@@ -324,34 +415,34 @@ exports.deleteProject = async (req, res) => {
 exports.downloadXLSX = async (req, res) => {
   const { id } = req.params;
   try {
-    const project = await Project.findById(id).lean();
+    const project = await Project.findById(id).populate('domainId').lean();
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
-    console.log(`Downloading XLSX for project ${id}, raw document:`, JSON.stringify(project, null, 2));
+    console.log(`Downloading XLSX for project ${id}`);
     
     const workbook = XLSX.utils.book_new();
     const data = [];
     
-    // Данные из project.translations
+    const isCSV = project.type === 'csv';
+    
     if (project.translations && Array.isArray(project.translations)) {
       console.log(`Processing ${project.translations.length} translations from project.translations`);
       project.translations.forEach(t => {
-        const row = {
+        const row = isCSV ? {
+          id: t.id,
+          Title: t.translated[0]?.Title || t.original.Title,
+          Content: t.translated[0]?.Content || t.original.Content,
+          Permalink: t.Permalink,
+          Slug: t.Slug
+        } : {
           imdbid: t.imdbid,
-          title: t.original.title,
-          description: t.original.description
+          title: t.translated[0]?.title || t.original.title,
+          description: t.translated[0]?.description || t.original.description
         };
-        t.translated.forEach(tr => {
-          row[`${tr.language} title`] = tr.title;
-          row[`${tr.language} description`] = tr.description;
-        });
         data.push(row);
       });
-    } else {
-      console.log('No translations in project.translations');
     }
     
-    // Данные из дополнительных коллекций
     const translationCollections = Array.isArray(project.translationCollections) ? project.translationCollections : [];
     console.log(`Processing ${translationCollections.length} additional collections`);
     for (const collectionName of translationCollections) {
@@ -361,12 +452,22 @@ exports.downloadXLSX = async (req, res) => {
         if (!Collection) {
           const TranslationSchema = new mongoose.Schema({
             translations: [{
+              id: String,
               imdbid: String,
-              original: { title: String, description: String },
+              Permalink: String,
+              Slug: String,
+              original: {
+                title: String,
+                Title: String,
+                description: String,
+                Content: String
+              },
               translated: [{
                 language: String,
                 title: String,
-                description: String
+                Title: String,
+                description: String,
+                Content: String
               }]
             }]
           });
@@ -379,19 +480,19 @@ exports.downloadXLSX = async (req, res) => {
           if (doc.translations && Array.isArray(doc.translations)) {
             console.log(`Processing ${doc.translations.length} translations in ${collectionName}`);
             doc.translations.forEach(t => {
-              const row = {
+              const row = isCSV ? {
+                id: t.id,
+                Title: t.translated[0]?.Title || t.original.Title,
+                Content: t.translated[0]?.Content || t.original.Content,
+                Permalink: t.Permalink,
+                Slug: t.Slug
+              } : {
                 imdbid: t.imdbid,
-                title: t.original.title,
-                description: t.original.description
+                title: t.translated[0]?.title || t.original.title,
+                description: t.translated[0]?.description || t.original.description
               };
-              t.translated.forEach(tr => {
-                row[`${tr.language} title`] = tr.title;
-                row[`${tr.language} description`] = tr.description;
-              });
               data.push(row);
             });
-          } else {
-            console.log(`No translations array in document of ${collectionName}`);
           }
         }
       } catch (err) {
@@ -403,7 +504,7 @@ exports.downloadXLSX = async (req, res) => {
     if (data.length === 0) {
       console.warn('No translations found for XLSX generation');
     }
-    const worksheet = XLSX.utils.json_to_sheet(data);
+    const worksheet = XLSX.utils.json_to_sheet(data, { header: isCSV ? ['id', 'Title', 'Content', 'Permalink', 'Slug'] : ['imdbid', 'title', 'description'] });
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Translations');
     
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });

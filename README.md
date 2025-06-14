@@ -48,7 +48,7 @@ curl -X POST http://localhost:3000/api/auth/register -H "Content-Type: applicati
 
 **PowerShell (Invoke-RestMethod)**:
 ```powershell
-Invoke-RestMethod -Uri http://localhost:3000/api/auth/register -Method Post -ContentType "application/json" -Body '{"username":"your_username","password":"your_password"}'
+Invoke-RestMethod -Uri http://localhost:3000/api/auth/register -Method Post -ContentType "application/json" -Body '{"username":"testtest","password":"testtest"}'
 ```
 
 ### Login
