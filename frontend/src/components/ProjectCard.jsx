@@ -9,6 +9,7 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3200';
 function ProjectCard({ project, index, isActionLoading }) {
   const [isLoading, setIsLoading] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const isMobile = window.innerWidth < 768;
 
   const statusColors = {
     idle: 'bg-gray-500',
@@ -96,69 +97,63 @@ function ProjectCard({ project, index, isActionLoading }) {
         <div className="mt-2 sm:mt-3 md:mt-4 flex flex-wrap gap-1 sm:gap-2">
           {project.status === 'idle' && (
             <motion.button
-              whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleAction('start')}
               className={`bg-emerald-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${(isLoading || isActionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading || isActionLoading}
-              data-tooltip-id={`tooltip-${project._id}`} data-tooltip-content="Start translation"
+              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': 'Start translation' })}
             >
               {(isLoading || isActionLoading) ? <ClipLoader color="#FFF" size={10} /> : 'Start'}
             </motion.button>
           )}
           {project.status === 'running' && (
             <motion.button
-              whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleAction('cancel')}
               className={`bg-yellow-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${(isLoading || isActionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading || isActionLoading}
-              data-tooltip-id={`tooltip-${project._id}`} data-tooltip-content="Cancel translation"
+              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': 'Cancel translation' })}
             >
               {(isLoading || isActionLoading) ? <ClipLoader color="#FFF" size={10} /> : 'Cancel'}
             </motion.button>
           )}
           {(project.status === 'canceled' || project.status === 'error') && (
             <motion.button
-              whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleAction('resume')}
               className={`bg-emerald-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${(isLoading || isActionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading || isActionLoading}
-              data-tooltip-id={`tooltip-${project._id}`} data-tooltip-content="Resume translation"
+              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': 'Resume translation' })}
             >
               {(isLoading || isActionLoading) ? <ClipLoader color="#FFF" size={10} /> : 'Resume'}
             </motion.button>
           )}
           {(project.status === 'completed' || (project.translatedRows > 0 && (project.status === 'canceled' || project.status === 'error'))) && (
             <motion.button
-              whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               onClick={handleDownload}
               className={`bg-blue-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${(isLoading || isActionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading || isActionLoading}
-              data-tooltip-id={`tooltip-${project._id}`} data-tooltip-content="Download translated XLSX"
+              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': 'Download translated XLSX' })}
             >
               Download
             </motion.button>
           )}
           <motion.button
-            whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
             whileTap={{ scale: 0.95 }}
             onClick={handleDelete}
             className={`bg-red-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${project.status === 'running' || isLoading || isActionLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={project.status === 'running' || isLoading || isActionLoading}
-            data-tooltip-id={`tooltip-${project._id}`} data-tooltip-content="Delete project"
+            {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': 'Delete project' })}
           >
             Delete
           </motion.button>
           {project.failedImports?.length > 0 && (
             <motion.button
-              whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(255, 46, 46, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowErrors(!showErrors)}
               className="bg-red-600 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm"
-              data-tooltip-id={`tooltip-${project._id}`} data-tooltip-content="View import errors"
+              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': 'View import errors' })}
             >
               Errors ({project.failedImports.length})
             </motion.button>
@@ -212,7 +207,7 @@ function ProjectCard({ project, index, isActionLoading }) {
           </motion.div>
         )}
       </motion.div>
-      <Tooltip id={`tooltip-${project._id}`} className="tooltip-custom" />
+      {!isMobile && <Tooltip id={`tooltip-${project._id}`} className="tooltip-custom" />}
     </>
   );
 }

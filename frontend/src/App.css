@@ -67,8 +67,7 @@ body {
 }
 
 .nav-tab-mobile {
-  padding: 8px 12px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   color: #E9ECEF;
   background: rgba(26, 42, 68, 0.5);
@@ -81,10 +80,12 @@ body {
   justify-content: center;
 }
 
-.nav-tab-mobile:hover {
-  background: rgba(42, 157, 143, 0.4);
-  color: #2A9D8F;
-  box-shadow: 0 0 12px rgba(42, 157, 143, 0.6);
+.nav-tab-standard {
+  clip-path: polygon(0 0, 80% 0, 100% 20%, 100% 100%, 0 100%);
+}
+
+.nav-tab-csv {
+  clip-path: polygon(20% 0, 100% 0, 100% 100%, 0 100%, 0 20%);
 }
 
 .nav-tab-mobile-active {
@@ -116,6 +117,7 @@ input:focus, button:focus {
 
 button:disabled {
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .text-emerald { color: #2A9D8F; }
@@ -217,4 +219,9 @@ header, footer {
   .grid > * {
     width: 100%;
   }
+}
+
+/* Gradient background for homepage */
+.bg-gradient-to-b {
+  background: linear-gradient(to bottom, #1A2A44, #0F172A);
 }

@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ClipLoader } from 'react-spinners';
+import { Tooltip } from 'react-tooltip';
 import LoginForm from './components/LoginForm';
 import ProjectCard from './components/ProjectCard';
 import ProjectModal from './components/ProjectModal';
 import MobileTabBar from './components/MobileTabBar';
+import HomePage from './components/HomePage';
+import ProjectTypeModal from './components/ProjectTypeModal';
 import axios from 'axios';
 import './App.css';
 import logo from './assets/logo.png';
@@ -19,11 +22,14 @@ function App() {
   const [csvProjects, setCsvProjects] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState('standard');
+  const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState({});
   const [isAnimating, setIsAnimating] = useState(true);
   const wsRef = useRef(null);
   const navigate = useRef(null);
+  const location = useLocation();
+  const isMobile = window.innerWidth < 768;
 
   const connectWebSocket = () => {
     const ws = new WebSocket(WS_URL);
@@ -90,6 +96,7 @@ function App() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setIsAuthenticated(true);
+      navigate.current?.('/');
     } catch (error) {
       console.error('Failed to check token:', error.message);
       localStorage.removeItem('token');
@@ -151,7 +158,11 @@ function App() {
     }
   };
 
-  const handleLogin = () => setIsAuthenticated(true);
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+    navigate.current?.('/');
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
@@ -171,200 +182,199 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <div className="flex flex-col min-h-screen bg-futuristic">
-        <NavigateRef navigateRef={navigate} />
-        {isAuthenticated && (
-          <>
-            {/* Desktop/Laptop Header */}
-            <motion.header
-              initial={{ y: -50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-              onAnimationComplete={handleAnimationComplete}
-              className="bg-holo text-white p-4 sm:p-6 shadow-neon w-full hidden md:flex"
-            >
-              <div className="container mx-auto flex justify-between items-center">
-                <motion.div
-                  className="flex items-center cursor-pointer"
-                  whileHover={{ scale: 1.05 }}
-                  onClick={() => window.location.href = '/'}
-                >
-                  <img src={logo} alt="AI-Translation Logo" className="h-6 sm:h-8 mr-2" />
-                  <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-emerald">
-                    AI-Translation
-                  </h1>
-                </motion.div>
-                <nav className="flex gap-4 items-center">
-                  <NavLink
-                    to="/dashboard"
-                    className={({ isActive }) => `nav-tab text-sm ${isActive ? 'nav-tab-active' : ''}`}
-                    data-tooltip-id="tooltip" data-tooltip-content="View Standard Projects"
-                  >
-                    Standard
-                  </NavLink>
-                  <NavLink
-                    to="/csv-translation"
-                    className={({ isActive }) => `nav-tab text-sm ${isActive ? 'nav-tab-active' : ''}`}
-                    data-tooltip-id="tooltip" data-tooltip-content="View CSV Projects"
-                  >
-                    CSV
-                  </NavLink>
+    <div className="flex flex-col min-h-screen bg-futuristic">
+      <NavigateRef navigateRef={navigate} />
+      {isAuthenticated && (
+        <>
+          {/* Desktop/Laptop Header */}
+          <motion.header
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+            onAnimationComplete={handleAnimationComplete}
+            className="bg-holo text-white p-4 sm:p-6 shadow-neon w-full hidden md:flex"
+          >
+            <div className="container mx-auto flex justify-between items-center">
+              <NavLink to="/" className="flex items-center">
+                <img src={logo} alt="AI-Translation Logo" className="h-6 sm:h-8 mr-2" />
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-emerald">
+                  AI-Translation
+                </h1>
+              </NavLink>
+              <nav className="flex gap-4 items-center">
+                {location.pathname !== '/' && (
                   <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => { setModalType('csv'); setIsModalOpen(true); }}
+                    onClick={() => { setModalType(location.pathname === '/csv-translation' ? 'csv' : 'standard'); setIsModalOpen(true); }}
                     className="nav-tab bg-emerald-500 hover:bg-emerald-600 text-sm"
-                    data-tooltip-id="tooltip" data-tooltip-content="Create Project"
+                    data-tooltip-id="tooltip-create" data-tooltip-content="Create Project"
                   >
                     + New Project
                   </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleLogout}
-                    className="nav-tab bg-red-500 hover:bg-red-600 text-sm"
-                    data-tooltip-id="tooltip" data-tooltip-content="Sign out"
-                  >
-                    Logout
-                  </motion.button>
-                </nav>
-              </div>
-            </motion.header>
-            {/* Mobile Header */}
-            <motion.header
-              initial={{ y: -50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-              onAnimationComplete={handleAnimationComplete}
-              className="bg-holo text-white p-4 shadow-neon w-full flex justify-center items-center md:hidden"
+                )}
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleLogout}
+                  className="nav-tab bg-red-500 hover:bg-red-600 text-sm"
+                  data-tooltip-id="tooltip-logout" data-tooltip-content="Sign out"
+                >
+                  Logout
+                </motion.button>
+              </nav>
+            </div>
+          </motion.header>
+          {/* Mobile Header */}
+          <motion.header
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+            onAnimationComplete={handleAnimationComplete}
+            className="bg-holo text-white p-4 shadow-neon w-full flex justify-center items-center md:hidden"
+          >
+            <h1 className="text-xl font-extrabold text-emerald">
+              AI-Translation
+            </h1>
+          </motion.header>
+        </>
+      )}
+      <Routes>
+        <Route path="/login" element={
+          isAuthenticated ? <Navigate to="/" /> : <LoginForm onLogin={handleLogin} />
+        } />
+        <Route path="/" element={
+          !isAuthenticated ? <Navigate to="/login" /> : <HomePage />
+        } />
+        <Route path="/dashboard" element={
+          !isAuthenticated ? <Navigate to="/login" /> : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.7 }}
+              className="container mx-auto px-4 py-6 sm:py-8 flex-grow w-full pb-16 md:pb-0"
             >
-              <h1 className="text-xl font-extrabold text-emerald">
-                AI-Translation
-              </h1>
-            </motion.header>
-          </>
-        )}
-        <Routes>
-          <Route path="/login" element={
-            isAuthenticated ? <Navigate to="/dashboard" /> : <LoginForm onLogin={handleLogin} />
-          } />
-          <Route path="/dashboard" element={
-            !isAuthenticated ? <Navigate to="/login" /> : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.7 }}
-                className="container mx-auto px-4 py-6 sm:py-8 flex-grow w-full pb-16 md:pb-0"
-              >
-                {isLoading ? (
-                  <div className="flex justify-center items-center h-64">
-                    <ClipLoader color="#2A9D8F" size={50} cssOverride={{ borderWidth: '4px' }} />
-                  </div>
-                ) : standardProjects.length === 0 ? (
-                  <div className="flex items-center justify-center h-64 text-center text-silver text-sm sm:text-lg">
-                    Your projects will be displayed here
-                  </div>
-                ) : (
-                  <motion.div
-                    className="grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
-                    initial="hidden"
-                    animate="visible"
-                    variants={{
-                      hidden: { opacity: 0 },
-                      visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
-                    }}
-                  >
-                    {standardProjects.map((project, index) => (
-                      <ProjectCard
-                        key={`standard-${project._id}`}
-                        project={project}
-                        index={index}
-                        isActionLoading={isActionLoading[project._id] || false}
-                      />
-                    ))}
-                  </motion.div>
-                )}
-                {isModalOpen && (
-                  <ProjectModal
-                    type={modalType}
-                    onClose={() => setIsModalOpen(false)}
-                    onAdd={fetchProjects}
-                  />
-                )}
-              </motion.div>
-            )
-          } />
-          <Route path="/csv-translation" element={
-            !isAuthenticated ? <Navigate to="/login" /> : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.7 }}
-                className="container mx-auto px-4 py-6 sm:py-8 flex-grow w-full pb-16 md:pb-0"
-              >
-                {isLoading ? (
-                  <div className="flex justify-center items-center h-64">
-                    <ClipLoader color="#2A9D8F" size={50} cssOverride={{ borderWidth: '4px' }} />
-                  </div>
-                ) : csvProjects.length === 0 ? (
-                  <div className="flex items-center justify-center h-64 text-center text-silver text-sm sm:text-lg">
-                    Your projects will be displayed here
-                  </div>
-                ) : (
-                  <motion.div
-                    className="grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
-                    initial="hidden"
-                    animate="visible"
-                    variants={{
-                      hidden: { opacity: 0 },
-                      visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
-                    }}
-                  >
-                    {csvProjects.map((project, index) => (
-                      <ProjectCard
-                        key={`csv-${project._id}`}
-                        project={project}
-                        index={index}
-                        isActionLoading={isActionLoading[project._id] || false}
-                      />
-                    ))}
-                  </motion.div>
-                )}
-                {isModalOpen && (
-                  <ProjectModal
-                    type={modalType}
-                    onClose={() => setIsModalOpen(false)}
-                    onAdd={fetchProjects}
-                  />
-                )}
-              </motion.div>
-            )
-          } />
-          <Route path="/" element={<Navigate to="/login" />} />
-        </Routes>
-        {isAuthenticated && (
-          <>
-            <motion.footer
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-              onAnimationComplete={handleAnimationComplete}
-              className="bg-holo text-white py-4 sm:py-6 shadow-neon w-full hidden md:block"
+              {isLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <ClipLoader color="#2A9D8F" size={50} cssOverride={{ borderWidth: '4px' }} />
+                </div>
+              ) : standardProjects.length === 0 ? (
+                <div className="flex items-center justify-center h-64 text-center text-silver text-sm sm:text-lg">
+                  Your projects will be displayed here
+                </div>
+              ) : (
+                <motion.div
+                  className="grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    hidden: { opacity: 0 },
+                    visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
+                  }}
+                >
+                  {standardProjects.map((project, index) => (
+                    <ProjectCard
+                      key={`standard-${project._id}`}
+                      project={project}
+                      index={index}
+                      isActionLoading={isActionLoading[project._id] || false}
+                    />
+                  ))}
+                </motion.div>
+              )}
+              {isModalOpen && (
+                <ProjectModal
+                  type={modalType}
+                  onClose={() => setIsModalOpen(false)}
+                  onAdd={fetchProjects}
+                />
+              )}
+            </motion.div>
+          )
+        } />
+        <Route path="/csv-translation" element={
+          !isAuthenticated ? <Navigate to="/login" /> : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.7 }}
+              className="container mx-auto px-4 py-6 sm:py-8 flex-grow w-full pb-16 md:pb-0"
             >
-              <div className="container mx-auto text-center">
-                <p className="text-xs sm:text-sm text-silver">AI-Translation © 2025</p>
-              </div>
-            </motion.footer>
-            <MobileTabBar
-              setModalType={setModalType}
-              setIsModalOpen={setIsModalOpen}
-              handleLogout={handleLogout}
-            />
-          </>
-        )}
-      </div>
-    </BrowserRouter>
+              {isLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <ClipLoader color="#2A9D8F" size={50} cssOverride={{ borderWidth: '4px' }} />
+                </div>
+              ) : csvProjects.length === 0 ? (
+                <div className="flex items-center justify-center h-64 text-center text-silver text-sm sm:text-lg">
+                  Your projects will be displayed here
+                </div>
+              ) : (
+                <motion.div
+                  className="grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    hidden: { opacity: 0 },
+                    visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
+                  }}
+                >
+                  {csvProjects.map((project, index) => (
+                    <ProjectCard
+                      key={`csv-${project._id}`}
+                      project={project}
+                      index={index}
+                      isActionLoading={isActionLoading[project._id] || false}
+                    />
+                  ))}
+                </motion.div>
+              )}
+              {isModalOpen && (
+                <ProjectModal
+                  type={modalType}
+                  onClose={() => setIsModalOpen(false)}
+                  onAdd={fetchProjects}
+                />
+              )}
+            </motion.div>
+          )
+        } />
+      </Routes>
+      {isAuthenticated && (
+        <>
+          <motion.footer
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+            onAnimationComplete={handleAnimationComplete}
+            className="bg-holo text-white py-4 sm:py-6 shadow-neon w-full hidden md:block"
+          >
+            <div className="container mx-auto text-center">
+              <p className="text-xs sm:text-sm text-silver">AI-Translation © 2025</p>
+            </div>
+          </motion.footer>
+          <MobileTabBar
+            setModalType={setModalType}
+            setIsModalOpen={setIsModalOpen}
+            setIsTypeModalOpen={setIsTypeModalOpen}
+            handleLogout={handleLogout}
+            isModalOpen={isModalOpen || isTypeModalOpen}
+          />
+          {!isMobile && (
+            <>
+              <Tooltip id="tooltip-create" className="tooltip-custom" />
+              <Tooltip id="tooltip-logout" className="tooltip-custom" />
+            </>
+          )}
+        </>
+      )}
+      {isTypeModalOpen && (
+        <ProjectTypeModal
+          onClose={() => setIsTypeModalOpen(false)}
+          setModalType={setModalType}
+          setIsModalOpen={setIsModalOpen}
+        />
+      )}
+    </div>
   );
 }
 

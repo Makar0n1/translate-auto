@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ClipLoader } from 'react-spinners';
 import { Tooltip } from 'react-tooltip';
@@ -28,6 +28,14 @@ function ProjectModal({ type, onClose, onAdd }) {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
   const modalRef = useRef();
+  const isMobile = window.innerWidth < 768;
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, []);
 
   const handleClickOutside = (e) => {
     if (modalRef.current && !modalRef.current.contains(e.target)) {
@@ -161,7 +169,7 @@ function ProjectModal({ type, onClose, onAdd }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 overflow-y-auto"
+        className="fixed inset-0 bg-black bg-opacity-60 flex items-start sm:items-center justify-center z-60 p-4 overflow-y-auto md:overflow-hidden md:bottom-0 bottom-16"
         onClick={handleClickOutside}
       >
         <motion.div
@@ -212,9 +220,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                   onChange={(e) => setName(e.target.value)}
                   className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.name ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                   disabled={isLoading}
-                  data-tooltip-id="tooltip-name"
-                  data-tooltip-content="Enter project name"
-                  data-tooltip-delay-show={1000}
+                  {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-name', 'data-tooltip-content': 'Enter project name', 'data-tooltip-delay-show': 1000 })}
                 />
                 {errors.name && <p className="text-red-400 text-xs mb-2">{errors.name}</p>}
                 <div className="mb-2 sm:mb-4">
@@ -227,15 +233,12 @@ function ProjectModal({ type, onClose, onAdd }) {
                     disabled={isLoading}
                   />
                   <motion.button
-                    whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
                     whileTap={{ scale: 0.95 }}
                     type="button"
                     onClick={() => fileInputRef.current.click()}
-                    className={`bg-emerald-500 text-white px-3 sm:px-4 py-1 sm:py-2 rounded-lg hover:bg-emerald-600 transition-all duration-300 text-xs sm:text-base ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`bg-emerald-500 text-white px-3 sm:px-4 py-1 sm:py-2 rounded-lg transition-all duration-300 text-xs sm:text-base ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     disabled={isLoading}
-                    data-tooltip-id="tooltip-file"
-                    data-tooltip-content="Upload XLSX file"
-                    data-tooltip-delay-show={1000}
+                    {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-file', 'data-tooltip-content': 'Upload XLSX file', 'data-tooltip-delay-show': 1000 })}
                   >
                     Choose File
                   </motion.button>
@@ -254,9 +257,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       onChange={(e) => setColumns({ ...columns, id: e.target.value })}
                       className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.id ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
-                      data-tooltip-id="tooltip-id"
-                      data-tooltip-content="Column name for ID"
-                      data-tooltip-delay-show={1000}
+                      {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-id', 'data-tooltip-content': 'Column name for ID', 'data-tooltip-delay-show': 1000 })}
                     />
                     {errors.id && <p className="text-red-400 text-xs mb-2">{errors.id}</p>}
                     <motion.input
@@ -267,9 +268,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       onChange={(e) => setColumns({ ...columns, Title: e.target.value })}
                       className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.Title ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
-                      data-tooltip-id="tooltip-title"
-                      data-tooltip-content="Column name for Title"
-                      data-tooltip-delay-show={1000}
+                      {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-title', 'data-tooltip-content': 'Column name for Title', 'data-tooltip-delay-show': 1000 })}
                     />
                     {errors.Title && <p className="text-red-400 text-xs mb-2">{errors.Title}</p>}
                     <motion.input
@@ -280,9 +279,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       onChange={(e) => setColumns({ ...columns, Content: e.target.value })}
                       className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.Content ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
-                      data-tooltip-id="tooltip-content"
-                      data-tooltip-content="Column name for Content"
-                      data-tooltip-delay-show={1000}
+                      {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-content', 'data-tooltip-content': 'Column name for Content', 'data-tooltip-delay-show': 1000 })}
                     />
                     {errors.Content && <p className="text-red-400 text-xs mb-2">{errors.Content}</p>}
                     <motion.input
@@ -293,9 +290,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       onChange={(e) => setColumns({ ...columns, Permalink: e.target.value })}
                       className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.Permalink ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
-                      data-tooltip-id="tooltip-permalink"
-                      data-tooltip-content="Column name for Permalink"
-                      data-tooltip-delay-show={1000}
+                      {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-permalink', 'data-tooltip-content': 'Column name for Permalink', 'data-tooltip-delay-show': 1000 })}
                     />
                     {errors.Permalink && <p className="text-red-400 text-xs mb-2">{errors.Permalink}</p>}
                     <motion.input
@@ -306,9 +301,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       onChange={(e) => setColumns({ ...columns, Slug: e.target.value })}
                       className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.Slug ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
-                      data-tooltip-id="tooltip-slug"
-                      data-tooltip-content="Column name for Slug"
-                      data-tooltip-delay-show={1000}
+                      {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-slug', 'data-tooltip-content': 'Column name for Slug', 'data-tooltip-delay-show': 1000 })}
                     />
                     {errors.Slug && <p className="text-red-400 text-xs mb-2">{errors.Slug}</p>}
                   </>
@@ -322,9 +315,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       onChange={(e) => setColumns({ ...columns, imdbid: e.target.value })}
                       className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.imdbid ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
-                      data-tooltip-id="tooltip-imdbid"
-                      data-tooltip-content="Column name for IMDb ID"
-                      data-tooltip-delay-show={1000}
+                      {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-imdbid', 'data-tooltip-content': 'Column name for IMDb ID', 'data-tooltip-delay-show': 1000 })}
                     />
                     {errors.imdbid && <p className="text-red-400 text-xs mb-2">{errors.imdbid}</p>}
                     <motion.input
@@ -335,9 +326,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       onChange={(e) => setColumns({ ...columns, title: e.target.value })}
                       className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.title ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
-                      data-tooltip-id="tooltip-title-std"
-                      data-tooltip-content="Column name for Title"
-                      data-tooltip-delay-show={1000}
+                      {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-title-std', 'data-tooltip-content': 'Column name for Title', 'data-tooltip-delay-show': 1000 })}
                     />
                     {errors.title && <p className="text-red-400 text-xs mb-2">{errors.title}</p>}
                     <motion.input
@@ -348,9 +337,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       onChange={(e) => setColumns({ ...columns, description: e.target.value })}
                       className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.description ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
-                      data-tooltip-id="tooltip-description"
-                      data-tooltip-content="Column name for Description"
-                      data-tooltip-delay-show={1000}
+                      {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-description', 'data-tooltip-content': 'Column name for Description', 'data-tooltip-delay-show': 1000 })}
                     />
                     {errors.description && <p className="text-red-400 text-xs mb-2">{errors.description}</p>}
                   </>
@@ -365,20 +352,15 @@ function ProjectModal({ type, onClose, onAdd }) {
                       onChange={(e) => setNewLanguage(e.target.value)}
                       className={`w-full p-2 sm:p-3 border ${errors.languages ? 'border-red-400' : 'border-silver'} bg-gray-800 rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                       disabled={isLoading}
-                      data-tooltip-id="tooltip-language"
-                      data-tooltip-content="Enter a language code"
-                      data-tooltip-delay-show={1000}
+                      {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-language', 'data-tooltip-content': 'Enter a language code', 'data-tooltip-delay-show': 1000 })}
                     />
                     <motion.button
-                      whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
                       whileTap={{ scale: 0.95 }}
                       type="button"
                       onClick={handleAddLanguage}
-                      className="bg-emerald-500 text-white px-3 sm:px-4 py-1 sm:py-2 rounded-lg hover:bg-emerald-600 transition-all duration-300 text-xs sm:text-base"
+                      className="bg-emerald-500 text-white px-3 sm:px-4 py-1 sm:py-2 rounded-lg transition-all duration-300 text-xs sm:text-base"
                       disabled={isLoading}
-                      data-tooltip-id="tooltip-add-lang"
-                      data-tooltip-content="Add language"
-                      data-tooltip-delay-show={1000}
+                      {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-add-lang', 'data-tooltip-content': 'Add language', 'data-tooltip-delay-show': 1000 })}
                     >
                       +
                     </motion.button>
@@ -424,9 +406,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                   onChange={(e) => setDomain({ ...domain, url: e.target.value })}
                   className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.domainUrl ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                   disabled={isLoading}
-                  data-tooltip-id="tooltip-domain-url"
-                  data-tooltip-content="Enter website URL (API endpoint will be added automatically)"
-                  data-tooltip-delay-show={1000}
+                  {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-domain-url', 'data-tooltip-content': 'Enter website URL (API endpoint will be added automatically)', 'data-tooltip-delay-show': 1000 })}
                 />
                 {errors.domainUrl && <p className="text-red-400 text-xs mb-2">{errors.domainUrl}</p>}
                 <motion.input
@@ -437,9 +417,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                   onChange={(e) => setDomain({ ...domain, login: e.target.value })}
                   className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.domainLogin ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                   disabled={isLoading}
-                  data-tooltip-id="tooltip-domain-login"
-                  data-tooltip-content="Enter WordPress login"
-                  data-tooltip-delay-show={1000}
+                  {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-domain-login', 'data-tooltip-content': 'Enter WordPress login', 'data-tooltip-delay-show': 1000 })}
                 />
                 {errors.domainLogin && <p className="text-red-400 text-xs mb-2">{errors.domainLogin}</p>}
                 <motion.input
@@ -450,9 +428,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                   onChange={(e) => setDomain({ ...domain, apiPassword: e.target.value })}
                   className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.domainPassword ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                   disabled={isLoading}
-                  data-tooltip-id="tooltip-domain-password"
-                  data-tooltip-content="Enter WordPress API password"
-                  data-tooltip-delay-show={1000}
+                  {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-domain-password', 'data-tooltip-content': 'Enter WordPress API password', 'data-tooltip-delay-show': 1000 })}
                 />
                 {errors.domainPassword && <p className="text-red-400 text-xs mb-2">{errors.domainPassword}</p>}
                 <div className="mb-2 sm:mb-4 flex items-center">
@@ -472,36 +448,37 @@ function ProjectModal({ type, onClose, onAdd }) {
               </motion.div>
             )}
             <motion.button
-              whileHover={{ scale: 1.05, boxShadow: '0 0 10px rgba(42, 157, 143, 0.5)' }}
               whileTap={{ scale: 0.95 }}
               type="submit"
-              className={`w-full bg-emerald-500 text-white p-2 sm:p-3 rounded-lg hover:bg-emerald-600 transition-all duration-300 text-sm sm:text-base ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full bg-emerald-500 text-white p-2 sm:p-3 rounded-lg transition-all duration-300 text-sm sm:text-base ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading}
-              data-tooltip-id="tooltip-submit"
-              data-tooltip-content="Create project"
-              data-tooltip-delay-show={1000}
+              {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-submit', 'data-tooltip-content': 'Create project', 'data-tooltip-delay-show': 1000 })}
             >
               {isLoading ? <ClipLoader color="#FFF" size={16} /> : 'Create Project'}
             </motion.button>
           </form>
         </motion.div>
       </motion.div>
-      <Tooltip id="tooltip-name" className="tooltip-custom" />
-      <Tooltip id="tooltip-file" className="tooltip-custom" />
-      <Tooltip id="tooltip-id" className="tooltip-custom" />
-      <Tooltip id="tooltip-title" className="tooltip-custom" />
-      <Tooltip id="tooltip-content" className="tooltip-custom" />
-      <Tooltip id="tooltip-permalink" className="tooltip-custom" />
-      <Tooltip id="tooltip-slug" className="tooltip-custom" />
-      <Tooltip id="tooltip-imdbid" className="tooltip-custom" />
-      <Tooltip id="tooltip-title-std" className="tooltip-custom" />
-      <Tooltip id="tooltip-description" className="tooltip-custom" />
-      <Tooltip id="tooltip-language" className="tooltip-custom" />
-      <Tooltip id="tooltip-add-lang" className="tooltip-custom" />
-      <Tooltip id="tooltip-submit" className="tooltip-custom" />
-      <Tooltip id="tooltip-domain-url" className="tooltip-custom" />
-      <Tooltip id="tooltip-domain-login" className="tooltip-custom" />
-      <Tooltip id="tooltip-domain-password" className="tooltip-custom" />
+      {!isMobile && (
+        <>
+          <Tooltip id="tooltip-name" className="tooltip-custom" />
+          <Tooltip id="tooltip-file" className="tooltip-custom" />
+          <Tooltip id="tooltip-id" className="tooltip-custom" />
+          <Tooltip id="tooltip-title" className="tooltip-custom" />
+          <Tooltip id="tooltip-content" className="tooltip-custom" />
+          <Tooltip id="tooltip-permalink" className="tooltip-custom" />
+          <Tooltip id="tooltip-slug" className="tooltip-custom" />
+          <Tooltip id="tooltip-imdbid" className="tooltip-custom" />
+          <Tooltip id="tooltip-title-std" className="tooltip-custom" />
+          <Tooltip id="tooltip-description" className="tooltip-custom" />
+          <Tooltip id="tooltip-language" className="tooltip-custom" />
+          <Tooltip id="tooltip-add-lang" className="tooltip-custom" />
+          <Tooltip id="tooltip-submit" className="tooltip-custom" />
+          <Tooltip id="tooltip-domain-url" className="tooltip-custom" />
+          <Tooltip id="tooltip-domain-login" className="tooltip-custom" />
+          <Tooltip id="tooltip-domain-password" className="tooltip-custom" />
+        </>
+      )}
     </>
   );
 }
