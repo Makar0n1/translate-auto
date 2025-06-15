@@ -13,21 +13,31 @@ function HomePage() {
       className="container mx-auto px-4 py-6 sm:py-8 flex-grow w-full pb-16 md:pb-0 bg-gradient-to-b from-dark-blue to-futuristic"
     >
       {isMobile ? (
-        <div className="text-center">
-          <h2 className="text-xl sm:text-2xl font-bold text-emerald mb-6">Welcome to AI-Translation</h2>
+        <div className="text-left">
+          <h2 className="text-xl font-bold text-emerald mb-6 text-center">Welcome to AI-Translation</h2>
           <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Standard Projects</h3>
-              <p className="text-silver text-sm">
-                Translate individual data entries, such as movie titles and descriptions, with precision and ease.
+            <motion.div
+              className="bg-dark-blue p-4 rounded-xl border border-silver shadow-neon-lg"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 100 }}
+            >
+              <h3 className="text-lg font-semibold text-white text-center mb-2">Standard Projects</h3>
+              <p className="text-silver text-sm mb-4">
+                Perfect for translating individual data entries with high precision. Ideal for small-scale projects like movie titles, product descriptions, or single-page content. Supports multiple languages and ensures context-aware translations for professional results.
               </p>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-2">CSV Projects</h3>
-              <p className="text-silver text-sm">
-                Bulk translate CSV files with support for WordPress import, perfect for large-scale content updates.
+            </motion.div>
+            <motion.div
+              className="bg-dark-blue p-4 rounded-xl border border-silver shadow-neon-lg"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 100, delay: 0.2 }}
+            >
+              <h3 className="text-lg font-semibold text-white text-center mb-2">CSV Projects</h3>
+              <p className="text-silver text-sm mb-4">
+                Designed for bulk translations of large datasets via CSV files. Supports WordPress import, making it ideal for websites, e-commerce platforms, or content management systems. Handles thousands of rows efficiently with customizable column mapping.
               </p>
-            </div>
+            </motion.div>
           </div>
         </div>
       ) : (
