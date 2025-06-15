@@ -40,7 +40,7 @@ function MobileTabBar({ setModalType, setIsModalOpen, setIsTypeModalOpen, handle
         CSV
       </NavLink>
       <motion.button
-        whileTap={{ scale: 0.9 }}
+        whileTap={{ scale: 0.95 }}
         onClick={handleLogout}
         disabled={isModalOpen}
         className={`nav-tab-mobile nav-tab-logout bg-red-500 ${isModalOpen ? 'pointer-events-none opacity-50' : ''}`}
@@ -49,7 +49,7 @@ function MobileTabBar({ setModalType, setIsModalOpen, setIsTypeModalOpen, handle
       </motion.button>
       <motion.button
         onClick={handlePlusClick}
-        disabled={isModalOpen}
+        //disabled={isModalOpen}
         className="bg-orange-500 text-white w-[50px] h-[50px] rounded-full flex items-center justify-center text-2xl shadow-neon z-60 absolute left-[calc(50%-25px)]"
       >
         <span className="text-3xl leading-none mb-[6px]">+</span>
