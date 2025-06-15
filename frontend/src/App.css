@@ -228,9 +228,9 @@ header, footer {
   }
 }
 
-/* Safe area padding for iPhone notch and swipe bar */
-.pb-safe {
-  padding-bottom: max(16px, env(safe-area-inset-bottom));
+/* Safe area bottom class */
+.safe-area-bottom {
+  background: transparent; /* Ensure safe area is transparent */
 }
 
 /* Gradient background for homepage */
