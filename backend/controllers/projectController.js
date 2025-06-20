@@ -1,3 +1,4 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
 const XLSX = require('xlsx');
 const multer = require('multer');
@@ -134,7 +135,7 @@ exports.startTranslation = async (req, res) => {
     
     let currentCollection = null;
     let collectionIndex = project.translationCollections.length + 1;
-    let maxRowsPerCollection = 5000;
+    let maxRowsPerCollection = 1000;
     let rowCountInCurrentCollection = 0;
 
     const isCSV = project.type === 'csv';
