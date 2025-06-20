@@ -25,18 +25,18 @@ exports.getProjects = async (req, res) => {
 };
 
 exports.createProject = async (req, res) => {
-  const { name, type, importToSite } = req.body;
+  const { name, type, importToSite, generateOnly, generateMetaDescription } = req.body;
   let { columns, languages, domain } = req.body;
   const file = req.file;
 
   try {
-    console.log('Create project request:', { name, type, importToSite, columns, languages, domain, file: file?.path });
+    console.log('Create project request:', { name, type, importToSite, generateOnly, generateMetaDescription, columns, languages, file: file?.path });
 
     if (typeof columns === 'string') columns = JSON.parse(columns);
     if (typeof languages === 'string') languages = JSON.parse(languages);
     if (typeof domain === 'string' && domain) domain = JSON.parse(domain);
 
-    if (!name || !file || !columns || !languages || languages.length === 0) {
+    if (!name || !file || !columns || !languages || !languages.length) {
       if (file) await fs.unlink(file.path).catch(err => console.warn(`Failed to delete file ${file.path}:`, err.message));
       return res.status(400).json({ error: 'Name, file, columns, and at least one language are required' });
     }
@@ -87,12 +87,14 @@ exports.createProject = async (req, res) => {
       translations: [],
       translationCollections: [],
       importToSite: importToSite === 'true' || importToSite === true,
+      generateOnly: generateOnly === 'true' || generateOnly === true,
+      generateMetaDescription: generateMetaDescription === 'true' || generateMetaDescription === true,
       domainId,
       failedImports: []
     });
     
     await project.save();
-    console.log('Project created:', project._id, 'type:', project.type, 'importToSite:', project.importToSite);
+    console.log('Project created:', project._id, 'type:', project.type, 'importToSite:', project.importToSite, 'generateOnly:', project.generateOnly, 'generateMetaDescription:', project.generateMetaDescription);
     broadcast({ type: 'PROJECT_CREATED', project: await Project.findById(project._id).populate('domainId').lean() });
     res.status(201).json(project);
   } catch (error) {
@@ -109,7 +111,7 @@ exports.startTranslation = async (req, res) => {
     project = await Project.findById(id).populate('domainId').lean();
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
-    console.log(`Starting translation for project ${id}`);
+    console.log(`Starting ${project.generateOnly ? 'description generation' : 'translation'} for project ${id}`);
     await Project.updateOne({ _id: id }, { status: 'running' });
     if (!Array.isArray(project.translations)) {
       await Project.updateOne({ _id: id }, { translations: [] });
@@ -124,9 +126,8 @@ exports.startTranslation = async (req, res) => {
     console.log(`Broadcasting PROJECT_UPDATED for project ${id}, status: running, project data:`, project);
     broadcast({ type: 'PROJECT_UPDATED', project });
     
-    res.json(project); // Ответ клиенту сразу после инициализации
+    res.json(project);
     
-    // Асинхронная обработка перевода
     const workbook = XLSX.readFile(project.filePath);
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(sheet);
@@ -154,7 +155,8 @@ exports.startTranslation = async (req, res) => {
           title: String,
           Title: String,
           description: String,
-          Content: String
+          Content: String,
+          custom_description: String
         }]
       }]
     });
@@ -213,20 +215,40 @@ exports.startTranslation = async (req, res) => {
       for (const lang of project.languages) {
         try {
           if (isCSV) {
-            const title = await translateText(row[project.columns.Title], lang, 'title', true);
-            const content = row[project.columns.Content] === 'N/A' ?
-              await translateText(row[project.columns.Title], lang, 'generateDescription', true) :
-              await translateText(row[project.columns.Content], lang, 'description', true);
+            let title, content, custom_description;
+            if (project.generateOnly) {
+              title = row[project.columns.Title];
+              content = await translateText(row[project.columns.Title], lang, 'generateDescription', true);
+              if (project.generateMetaDescription) {
+                custom_description = await translateText(row[project.columns.Title], lang, 'metaDescription', true);
+              }
+            } else {
+              title = await translateText(row[project.columns.Title], lang, 'title', true);
+              content = row[project.columns.Content] === 'N/A' ?
+                await translateText(row[project.columns.Title], lang, 'generateDescription', true) :
+                await translateText(row[project.columns.Content], lang, 'description', true);
+              if (project.generateMetaDescription) {
+                custom_description = await translateText(row[project.columns.Title], lang, 'metaDescription', true);
+              }
+            }
             translations.push({ 
               language: lang, 
               Title: title, 
-              Content: content 
+              Content: content,
+              custom_description
             });
             
             if (project.importToSite && lang === project.languages[0]) {
               try {
                 const post = await getPostByUrl(row[project.columns.Permalink], project.domainId);
-                await updatePost(post.id, { title, content }, project.domainId);
+                const updateData = { content };
+                if (project.generateMetaDescription && custom_description) {
+                  updateData.meta = { custom_description }; // Для плагина
+                  // Добавляем meta description в yoast_head
+                  const metaTag = `<meta name="description" content="${custom_description.replace(/"/g, '&quot;')}" />`;
+                  updateData.yoast_head = metaTag + '\n' + (post.yoast_head || '');
+                }
+                await updatePost(post.id, updateData, project.domainId, post.type);
                 await Project.updateOne(
                   { _id: id },
                   { $inc: { importedRows: 1 }, $set: { importProgress: ((project.importedRows + 1) / project.totalRows) * 100 } }
@@ -433,7 +455,8 @@ exports.downloadXLSX = async (req, res) => {
           Title: t.translated[0]?.Title || t.original.Title,
           Content: t.translated[0]?.Content || t.original.Content,
           Permalink: t.Permalink,
-          Slug: t.Slug
+          Slug: t.Slug,
+          custom_description: t.translated[0]?.custom_description
         } : {
           imdbid: t.imdbid,
           title: t.translated[0]?.title || t.original.title,
@@ -467,7 +490,8 @@ exports.downloadXLSX = async (req, res) => {
                 title: String,
                 Title: String,
                 description: String,
-                Content: String
+                Content: String,
+                custom_description: String
               }]
             }]
           });
@@ -485,7 +509,8 @@ exports.downloadXLSX = async (req, res) => {
                 Title: t.translated[0]?.Title || t.original.Title,
                 Content: t.translated[0]?.Content || t.original.Content,
                 Permalink: t.Permalink,
-                Slug: t.Slug
+                Slug: t.Slug,
+                custom_description: t.translated[0]?.custom_description
               } : {
                 imdbid: t.imdbid,
                 title: t.translated[0]?.title || t.original.title,
@@ -504,7 +529,7 @@ exports.downloadXLSX = async (req, res) => {
     if (data.length === 0) {
       console.warn('No translations found for XLSX generation');
     }
-    const worksheet = XLSX.utils.json_to_sheet(data, { header: isCSV ? ['id', 'Title', 'Content', 'Permalink', 'Slug'] : ['imdbid', 'title', 'description'] });
+    const worksheet = XLSX.utils.json_to_sheet(data, { header: isCSV ? ['id', 'Title', 'Content', 'Permalink', 'Slug', 'custom_description'] : ['imdbid', 'title', 'description'] });
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Translations');
     
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });

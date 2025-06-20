@@ -21,6 +21,8 @@ const ProjectSchema = new mongoose.Schema({
   totalRows: { type: Number, default: 0 },
   translatedRows: { type: Number, default: 0 },
   importToSite: { type: Boolean, default: false },
+  generateOnly: { type: Boolean, default: false },
+  generateMetaDescription: { type: Boolean, default: false }, // Новое поле
   domainId: { type: mongoose.Schema.Types.ObjectId, ref: 'Domain', default: null },
   importProgress: { type: Number, default: 0 },
   importedRows: { type: Number, default: 0 },
@@ -44,7 +46,8 @@ const ProjectSchema = new mongoose.Schema({
       title: String,
       Title: String,
       description: String,
-      Content: String
+      Content: String,
+      custom_description: String // Новое поле для мета-описания
     }]
   }],
   translationCollections: { type: [String], default: [] },
