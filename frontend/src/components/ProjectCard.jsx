@@ -87,9 +87,9 @@ function ProjectCard({ project, index, isActionLoading }) {
           <p className="text-red-400 mb-1 sm:mb-2 md:mb-3 text-xs sm:text-sm truncate">{project.errorMessage}</p>
         )}
         <p className="text-silver text-xs sm:text-sm mb-0.5 sm:mb-1">
-          Type: {project.importToSite ? `Translate + Import (${project.domainId?.url || 'Unknown'})` : 'Translate Only'}
+          Type: {project.importToSite ? `${project.generateOnly ? 'Generate Descriptions' : 'Translate'} + Import${project.generateMetaDescription ? ' + Meta' : ''} (${project.domainId?.url || 'Unknown'})` : project.generateOnly ? 'Generate Descriptions Only' : 'Translate Only'}
         </p>
-        <p className="text-silver text-xs sm:text-sm mb-0.5 sm:mb-1">Translation Progress: {project.translatedRows}/{project.totalRows} rows</p>
+        <p className="text-silver text-xs sm:text-sm mb-0.5 sm:mb-1">{project.generateOnly ? 'Generation Progress' : 'Translation Progress'}: {project.translatedRows}/{project.totalRows} rows</p>
         {project.importToSite && (
           <p className="text-silver text-xs sm:text-sm mb-0.5 sm:mb-1">Import Progress: {project.importedRows}/{project.totalRows} rows</p>
         )}
@@ -101,7 +101,7 @@ function ProjectCard({ project, index, isActionLoading }) {
               onClick={() => handleAction('start')}
               className={`bg-emerald-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${(isLoading || isActionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading || isActionLoading}
-              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': 'Start translation' })}
+              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': project.generateOnly ? 'Start generation' : 'Start translation' })}
             >
               {(isLoading || isActionLoading) ? <ClipLoader color="#FFF" size={10} /> : 'Start'}
             </motion.button>
@@ -112,7 +112,7 @@ function ProjectCard({ project, index, isActionLoading }) {
               onClick={() => handleAction('cancel')}
               className={`bg-yellow-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${(isLoading || isActionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading || isActionLoading}
-              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': 'Cancel translation' })}
+              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': project.generateOnly ? 'Cancel generation' : 'Cancel translation' })}
             >
               {(isLoading || isActionLoading) ? <ClipLoader color="#FFF" size={10} /> : 'Cancel'}
             </motion.button>
@@ -123,7 +123,7 @@ function ProjectCard({ project, index, isActionLoading }) {
               onClick={() => handleAction('resume')}
               className={`bg-emerald-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${(isLoading || isActionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading || isActionLoading}
-              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': 'Resume translation' })}
+              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': project.generateOnly ? 'Resume generation' : 'Resume translation' })}
             >
               {(isLoading || isActionLoading) ? <ClipLoader color="#FFF" size={10} /> : 'Resume'}
             </motion.button>
@@ -134,7 +134,7 @@ function ProjectCard({ project, index, isActionLoading }) {
               onClick={handleDownload}
               className={`bg-blue-500 text-white px-2 sm:px-3 md:px-4 py-0.5 sm:py-1 md:py-2 rounded-lg transition-all duration-300 text-xs sm:text-sm ${(isLoading || isActionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading || isActionLoading}
-              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': 'Download translated XLSX' })}
+              {...(isMobile ? {} : { 'data-tooltip-id': `tooltip-${project._id}`, 'data-tooltip-content': 'Download XLSX' })}
             >
               Download
             </motion.button>

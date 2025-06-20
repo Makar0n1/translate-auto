@@ -18,6 +18,8 @@ function ProjectModal({ type, onClose, onAdd }) {
   const [languages, setLanguages] = useState([]);
   const [newLanguage, setNewLanguage] = useState('');
   const [importToSite, setImportToSite] = useState(false);
+  const [generateOnly, setGenerateOnly] = useState(false);
+  const [generateMetaDescription, setGenerateMetaDescription] = useState(false); // Новый чекбокс
   const [domain, setDomain] = useState({
     url: '',
     login: '',
@@ -63,11 +65,19 @@ function ProjectModal({ type, onClose, onAdd }) {
   };
 
   const handleAddLanguage = () => {
+    if (generateOnly) {
+      if (languages.length === 0) {
+        setLanguages(['en']);
+        console.log('Added default language: en for generateOnly');
+      }
+      return;
+    }
     const trimmedLang = newLanguage.trim();
     if (trimmedLang && !languages.includes(trimmedLang)) {
       setLanguages([...languages, trimmedLang]);
       setNewLanguage('');
       setErrors({ ...errors, languages: '' });
+      console.log('Added language:', trimmedLang);
     }
   };
 
@@ -81,7 +91,9 @@ function ProjectModal({ type, onClose, onAdd }) {
     requiredFields.forEach(field => {
       if (!columns[field]) newErrors[field] = `${field} column is required`;
     });
-    if (languages.length === 0) newErrors.languages = 'At least one language is required';
+    if (!generateOnly && languages.length === 0) {
+      newErrors.languages = 'At least one language is required';
+    }
     if (importToSite) {
       if (!domain.url) newErrors.domainUrl = 'Website URL is required';
       if (!domain.login) newErrors.domainLogin = 'Login is required';
@@ -100,9 +112,11 @@ function ProjectModal({ type, onClose, onAdd }) {
       { id: '', Title: '', Content: '', Permalink: '', Slug: '' } : 
       { imdbid: '', title: '', description: '' }
     );
-    setLanguages([]);
+    setLanguages(generateOnly ? ['en'] : []);
     setNewLanguage('');
     setImportToSite(false);
+    setGenerateOnly(false);
+    setGenerateMetaDescription(false);
     setDomain({ url: '', login: '', apiPassword: '', isWordPress: false });
     setErrors({});
     setTab('translation');
@@ -118,8 +132,10 @@ function ProjectModal({ type, onClose, onAdd }) {
     formData.append('type', type);
     formData.append('file', file);
     formData.append('columns', JSON.stringify(columns));
-    formData.append('languages', JSON.stringify(languages));
+    formData.append('languages', JSON.stringify(generateOnly ? ['en'] : languages));
     formData.append('importToSite', importToSite);
+    formData.append('generateOnly', generateOnly);
+    formData.append('generateMetaDescription', generateMetaDescription);
 
     if (importToSite) {
       let normalizedUrl = domain.url.trim();
@@ -178,7 +194,7 @@ function ProjectModal({ type, onClose, onAdd }) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 100, damping: 20 }}
-          className="bg-dark-blue p-4 sm:p-6 md:p-8 rounded-xl border border-silver shadow-neon w-full max-w-[90vw] sm:max-w-lg max-h-[90vh] overflow-y-auto"
+          className="bg-dark-blue p-4 sm:p-6 md:p-8 rounded-xl border border-silver shadow-neon w-full max-w-[90vw] sm:max-w-lg max-h-[600px] overflow-y-auto"
         >
           <h2 className="text-xl sm:text-2xl font-bold text-emerald mb-4 sm:mb-6 text-center">
             New {type === 'csv' ? 'CSV' : 'Standard'} Project
@@ -304,6 +320,34 @@ function ProjectModal({ type, onClose, onAdd }) {
                       {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-slug', 'data-tooltip-content': 'Column name for Slug', 'data-tooltip-delay-show': 1000 })}
                     />
                     {errors.Slug && <p className="text-red-400 text-xs mb-2">{errors.Slug}</p>}
+                    <div className="mb-2 sm:mb-4 flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={generateOnly}
+                        onChange={(e) => setGenerateOnly(e.target.checked)}
+                        className="mr-2 h-3 sm:h-4 w-3 sm:w-4 text-emerald-500 border-silver rounded focus:ring-emerald-500"
+                        disabled={isLoading}
+                        id="generateOnly"
+                        {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-generate-only', 'data-tooltip-content': 'Generate descriptions without translating titles' })}
+                      />
+                      <label htmlFor="generateOnly" className="text-silver text-xs sm:text-sm">
+                        No translation, generate descriptions only
+                      </label>
+                    </div>
+                    <div className="mb-2 sm:mb-4 flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={generateMetaDescription}
+                        onChange={(e) => setGenerateMetaDescription(e.target.checked)}
+                        className="mr-2 h-3 sm:h-4 w-3 sm:w-4 text-emerald-500 border-silver rounded focus:ring-emerald-500"
+                        disabled={isLoading}
+                        id="generateMetaDescription"
+                        {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-meta-description', 'data-tooltip-content': 'Generate SEO-optimized meta description' })}
+                      />
+                      <label htmlFor="generateMetaDescription" className="text-silver text-xs sm:text-sm">
+                        Generate SEO Meta Description
+                      </label>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -350,16 +394,16 @@ function ProjectModal({ type, onClose, onAdd }) {
                       placeholder="Language codes (e.g., ru, es)"
                       value={newLanguage}
                       onChange={(e) => setNewLanguage(e.target.value)}
-                      className={`w-full p-2 sm:p-3 border ${errors.languages ? 'border-red-400' : 'border-silver'} bg-gray-800 rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
-                      disabled={isLoading}
+                      className={`w-full p-2 sm:p-3 border ${errors.languages ? 'border-red-400' : 'border-silver'} bg-gray-800 rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300 ${generateOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      disabled={isLoading || generateOnly}
                       {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-language', 'data-tooltip-content': 'Enter a language code', 'data-tooltip-delay-show': 1000 })}
                     />
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       type="button"
                       onClick={handleAddLanguage}
-                      className="bg-emerald-500 text-white px-3 sm:px-4 py-1 sm:py-2 rounded-lg transition-all duration-300 text-xs sm:text-base"
-                      disabled={isLoading}
+                      className={`bg-emerald-500 text-white px-3 sm:px-4 py-1 sm:py-2 rounded-lg transition-all duration-300 text-xs sm:text-base ${isLoading || generateOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      disabled={isLoading || generateOnly}
                       {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-add-lang', 'data-tooltip-content': 'Add language', 'data-tooltip-delay-show': 1000 })}
                     >
                       +
@@ -388,6 +432,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                       className="mr-2 h-3 sm:h-4 w-3 sm:w-4 text-emerald-500 border-silver rounded focus:ring-emerald-500"
                       disabled={isLoading}
                       id="importToSite"
+                      {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-import', 'data-tooltip-content': 'Import to WordPress site' })}
                     />
                     <label htmlFor="importToSite" className="text-silver text-xs sm:text-sm">
                       Import translations to website
@@ -406,7 +451,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                   onChange={(e) => setDomain({ ...domain, url: e.target.value })}
                   className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.domainUrl ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                   disabled={isLoading}
-                  {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-domain-url', 'data-tooltip-content': 'Enter website URL (API endpoint will be added automatically)', 'data-tooltip-delay-show': 1000 })}
+                  {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-domain-url', 'data-tooltip-content': 'Enter website URL (API endpoint will be added automatically)' })}
                 />
                 {errors.domainUrl && <p className="text-red-400 text-xs mb-2">{errors.domainUrl}</p>}
                 <motion.input
@@ -417,7 +462,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                   onChange={(e) => setDomain({ ...domain, login: e.target.value })}
                   className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.domainLogin ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                   disabled={isLoading}
-                  {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-domain-login', 'data-tooltip-content': 'Enter WordPress login', 'data-tooltip-delay-show': 1000 })}
+                  {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-domain-login', 'data-tooltip-content': 'Enter WordPress login' })}
                 />
                 {errors.domainLogin && <p className="text-red-400 text-xs mb-2">{errors.domainLogin}</p>}
                 <motion.input
@@ -428,7 +473,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                   onChange={(e) => setDomain({ ...domain, apiPassword: e.target.value })}
                   className={`w-full p-2 sm:p-3 mb-2 sm:mb-4 bg-gray-800 border ${errors.domainPassword ? 'border-red-400' : 'border-silver'} rounded-lg text-white text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all duration-300`}
                   disabled={isLoading}
-                  {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-domain-password', 'data-tooltip-content': 'Enter WordPress API password', 'data-tooltip-delay-show': 1000 })}
+                  {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-domain-password', 'data-tooltip-content': 'Enter WordPress API password' })}
                 />
                 {errors.domainPassword && <p className="text-red-400 text-xs mb-2">{errors.domainPassword}</p>}
                 <div className="mb-2 sm:mb-4 flex items-center">
@@ -439,6 +484,7 @@ function ProjectModal({ type, onClose, onAdd }) {
                     className={`mr-2 h-3 sm:h-4 w-3 sm:w-4 text-emerald-500 border ${errors.isWordPress ? 'border-red-400' : 'border-silver'} rounded focus:ring-emerald-500`}
                     disabled={isLoading}
                     id="isWordPress"
+                    {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-is-wordpress', 'data-tooltip-content': 'Confirm WordPress site' })}
                   />
                   <label htmlFor="isWordPress" className="text-silver text-xs sm:text-sm">
                     This is a WordPress site (required)
@@ -452,7 +498,7 @@ function ProjectModal({ type, onClose, onAdd }) {
               type="submit"
               className={`w-full bg-emerald-500 text-white p-2 sm:p-3 rounded-lg transition-all duration-300 text-sm sm:text-base ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLoading}
-              {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-submit', 'data-tooltip-content': 'Create project', 'data-tooltip-delay-show': 1000 })}
+              {...(isMobile ? {} : { 'data-tooltip-id': 'tooltip-submit', 'data-tooltip-content': 'Create project' })}
             >
               {isLoading ? <ClipLoader color="#FFF" size={16} /> : 'Create Project'}
             </motion.button>
@@ -477,6 +523,10 @@ function ProjectModal({ type, onClose, onAdd }) {
           <Tooltip id="tooltip-domain-url" className="tooltip-custom" />
           <Tooltip id="tooltip-domain-login" className="tooltip-custom" />
           <Tooltip id="tooltip-domain-password" className="tooltip-custom" />
+          <Tooltip id="tooltip-import" className="tooltip-custom" />
+          <Tooltip id="tooltip-is-wordpress" className="tooltip-custom" />
+          <Tooltip id="tooltip-generate-only" className="tooltip-custom" />
+          <Tooltip id="tooltip-meta-description" className="tooltip-custom" />
         </>
       )}
     </>
