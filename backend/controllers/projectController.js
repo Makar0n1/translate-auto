@@ -135,7 +135,7 @@ exports.startTranslation = async (req, res) => {
     
     let currentCollection = null;
     let collectionIndex = project.translationCollections.length + 1;
-    let maxRowsPerCollection = 1000;
+    let maxRowsPerCollection = Number(process.env.MAX_ROWS_PER_COLLECTION) || 1000;
     let rowCountInCurrentCollection = 0;
 
     const isCSV = project.type === 'csv';
