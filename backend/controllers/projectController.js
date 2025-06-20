@@ -241,12 +241,12 @@ exports.startTranslation = async (req, res) => {
             
             if (project.importToSite && lang === project.languages[0]) {
               try {
-                const post = await getPostByUrl(row[project.columns.Permalink], project.domainId);
+                // Используем ID из Excel вместо Permalink
+                const post = await getPostByUrl(row[project.columns.id], project.domainId);
                 const updateData = { content };
                 if (project.generateMetaDescription && custom_description) {
                   updateData.meta = { custom_description }; // Для плагина
-                  // Добавляем meta description в yoast_head
-                  const metaTag = `<meta name="description" content="${custom_description.replace(/"/g, '&quot;')}" />`;
+                  const metaTag = `<meta name="description" content="${custom_description.replace(/"/g, '\\"')}" />`;
                   updateData.yoast_head = metaTag + '\n' + (post.yoast_head || '');
                 }
                 await updatePost(post.id, updateData, project.domainId, post.type);
@@ -257,7 +257,7 @@ exports.startTranslation = async (req, res) => {
                 console.log(`Broadcasting PROJECT_UPDATED for project ${id}, import progress: ${project.importedRows + 1}/${project.totalRows}`);
                 broadcast({ type: 'PROJECT_UPDATED', project: await Project.findById(id).populate('domainId').lean() });
               } catch (wpError) {
-                console.warn(`Failed to import to WordPress for ${row[project.columns.Permalink]}:`, wpError.message);
+                console.warn(`Failed to import to WordPress for ID ${row[project.columns.id]}:`, wpError.message);
                 await Project.updateOne(
                   { _id: id },
                   { $push: { failedImports: { url: row[project.columns.Permalink], error: wpError.message } } }

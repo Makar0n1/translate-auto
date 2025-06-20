@@ -13,51 +13,23 @@ const getWpClient = async (domainId) => {
   });
 };
 
-exports.getPostByUrl = async (postUrl, domainId) => {
+exports.getPostByUrl = async (postId, domainId) => {
   try {
     const wpClient = await getWpClient(domainId);
-    const segments = postUrl.split('/').filter(segment => segment);
-    const slug = segments.pop();
-    let id = null;
+    console.log(`Fetching post for ID: ${postId}, domainId: ${domainId}`);
 
-    const idMatch = postUrl.match(/\/(\d+)\/?$/);
-    if (idMatch) {
-      id = idMatch[1];
-    }
-    console.log(`Attempting to fetch post for URL: ${postUrl}, slug: ${slug}, id: ${id}, domainId: ${domainId}`);
-
-    if (id) {
-      console.log(`Fetching from /film/${id}`);
-      const response = await wpClient.get(`/film/${id}`);
-      console.log(`Response from /film/${id}:`, response.data);
-      if (response.data.id) {
-        console.log(`Found CPT post with ID: ${response.data.id}, slug: ${response.data.slug}`);
-        return { ...response.data, type: 'film' };
-      }
+    // Поиск только по ID через /film/<id>
+    console.log(`Fetching from /film/${postId}`);
+    const response = await wpClient.get(`/film/${postId}`);
+    console.log(`Response from /film/${postId}:`, response.data);
+    if (response.data.id) {
+      console.log(`Found CPT post with ID: ${response.data.id}, slug: ${response.data.slug}`);
+      return { ...response.data, type: 'film' };
     }
 
-    console.log(`Fetching from /film endpoint with slug: ${slug}`);
-    let response = await wpClient.get('/film', { params: { slug } });
-    console.log(`Response from /film?slug=${slug}:`, response.data);
-    if (response.data.length > 0) {
-      console.log(`Found CPT post with ID: ${response.data[0].id}, slug: ${response.data[0].slug}`);
-      const guidIdMatch = response.data[0].guid?.rendered?.match(/\/(\d+)\/?$/);
-      const guidId = guidIdMatch ? guidIdMatch[1] : null;
-      console.log(`Extracted guid ID: ${guidId}`);
-      return { ...response.data[0], type: 'film', guidId };
-    }
-
-    console.log(`Fetching from /posts endpoint with slug: ${slug}`);
-    response = await wpClient.get('/posts', { params: { slug } });
-    console.log(`Response from /posts?slug=${slug}:`, response.data);
-    if (response.data.length > 0) {
-      console.log(`Found post with ID: ${response.data[0].id}, slug: ${response.data[0].slug}`);
-      return { ...response.data[0], type: 'post' };
-    }
-
-    throw new Error(`Post not found for URL: ${postUrl}`);
+    throw new Error(`Post not found for ID: ${postId}`);
   } catch (error) {
-    console.error(`Error fetching post for URL ${postUrl}:`, error.message, error.response?.data || '');
+    console.error(`Error fetching post for ID ${postId}:`, error.message, error.response?.data || '');
     throw error;
   }
 };
@@ -70,7 +42,7 @@ exports.updatePost = async (postId, data, domainId, postType = 'film') => {
     const response = await wpClient.post(endpoint, {
       content: data.content,
       meta: data.meta || {},
-      yoast_head: data.yoast_head || undefined // Поддержка yoast_head
+      yoast_head: data.yoast_head || undefined
     });
     console.log(`Updated post ${postId} at endpoint ${endpoint}, response:`, response.data);
     return response.data;
